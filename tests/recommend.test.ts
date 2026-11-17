@@ -15,7 +15,7 @@ describe("filtres stricts", () => {
 
   it("filtre par mode de cuisson", () => {
     const res = rankRecipes(RECIPES, { ...EMPTY_FILTERS, modes: ["airfryer"] }, { ...base, inventory: new Map() });
-    expect(res.map((r) => r.recipe.id).sort()).toEqual(["airfryer-pdt", "airfryer-poulet"]);
+    expect(res.map((r) => r.recipe.id).sort()).toEqual(["airfryer-pdt", "airfryer-poulet", "airfryer-saumon"]);
   });
 
   it("exclut les recettes qui demandent un équipement que je n'ai pas (multi-équipements)", () => {

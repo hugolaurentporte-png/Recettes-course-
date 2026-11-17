@@ -71,7 +71,7 @@ const ROWS: Row[] = [
   // Viandes
   ["poulet", "Blancs de poulet", "viandes", "g", ["filet de poulet", "escalope de poulet", "blanc de poulet"], ""],
   ["cuisse-poulet", "Cuisses de poulet", "viandes", "piece", ["pilons"], ""],
-  ["boeuf-hache", "Bœuf haché", "viandes", "g", ["viande hachee", "steak hache"], ""],
+  ["boeuf-hache", "Bœuf haché", "viandes", "g", ["viande hachee"], ""],
   ["boeuf-braiser", "Bœuf à braiser", "viandes", "g", ["paleron", "macreuse", "boeuf bourguignon"], ""],
   ["porc-filet", "Filet mignon de porc", "viandes", "g", ["filet mignon"], ""],
   ["cote-porc", "Côtes de porc", "viandes", "piece", [], ""],
@@ -82,6 +82,8 @@ const ROWS: Row[] = [
   ["chorizo", "Chorizo", "viandes", "g", [], ""],
   ["dinde", "Escalopes de dinde", "viandes", "g", ["dinde"], ""],
   ["agneau", "Épaule d'agneau", "viandes", "g", ["agneau"], ""],
+  ["veau", "Veau à blanquette", "viandes", "g", ["epaule de veau", "tendron de veau", "veau"], ""],
+  ["steak", "Steaks hachés", "viandes", "piece", ["steak hache frais"], ""],
   // Poissons
   ["saumon", "Pavés de saumon", "poissons", "piece", ["saumon"], ""],
   ["cabillaud", "Dos de cabillaud", "poissons", "g", ["cabillaud", "colin", "lieu"], ""],
@@ -107,6 +109,8 @@ const ROWS: Row[] = [
   ["pate-brisee", "Pâte brisée", "laitiers", "piece", [], ""],
   // Féculents
   ["riz", "Riz", "feculents", "g", ["riz basmati", "riz long"], ""],
+  ["riz-rond", "Riz rond", "feculents", "g", ["riz dessert"], ""],
+  ["pain-burger", "Pains à burger", "feculents", "piece", ["buns"], ""],
   ["riz-arborio", "Riz arborio", "feculents", "g", ["riz a risotto"], ""],
   ["pates", "Pâtes", "feculents", "g", ["spaghetti", "penne", "coquillettes", "tagliatelles", "fusilli"], ""],
   ["lasagne", "Feuilles de lasagne", "feculents", "g", [], ""],

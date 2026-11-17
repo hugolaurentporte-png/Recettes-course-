@@ -25,7 +25,7 @@ Pour l'essayer sur le téléphone, il faut une adresse en HTTPS (hébergement Ve
 ## Tests
 
 ```bash
-npm test             # 249 tests : calculs métier, catalogue, stockage local
+npm test             # 421 tests : calculs métier, catalogue, stockage local
 npm run typecheck    # TypeScript strict
 npm run validate:recipes   # contrôle du catalogue de recettes uniquement
 npm run test:e2e     # parcours complet sur iPhone émulé (nécessite Playwright et `npm start` sur le port 4173 : BASE_URL=http://localhost:3000 npm run test:e2e)
@@ -47,7 +47,7 @@ npm run test:e2e     # parcours complet sur iPhone émulé (nécessite Playwrigh
 
 **Mon frigo** : recherche avec autocomplétion (noms, pluriels, alias : « patates »), ajout rapide en un geste, quantités facultatives, marquage « À utiliser rapidement » (avec rappel de prudence sur la fraîcheur), « Mes indispensables » non cochés par défaut, équipement possédé.
 
-**Recettes** : 45 recettes classiques, recherche par nom ou ingrédient, filtres combinables (temps, mode de cuisson, réalisable maintenant), fiche avec portions ajustables (quantités recalculées), disponible / manquant / à vérifier ligne par ligne, matériel, étapes numérotées.
+**Recettes** : 90 recettes classiques, recherche par nom ou ingrédient, filtres combinables (temps, mode de cuisson, réalisable maintenant), fiche avec portions ajustables (quantités recalculées), disponible / manquant / à vérifier ligne par ligne, matériel, étapes numérotées.
 
 **Moteur de recommandation** (déterministe, sans IA) : filtres stricts (temps, équipement), puis classement par niveau de disponibilité (réalisable, il manque 1, 2, 3+) et score : disponibilité 45 %, prioritaires 25 %, saison 15 %, temps 10 %, cuisson 5 % (réglable dans `src/lib/domain/recommend.ts`). Saisonnalité France métropolitaine.
 
@@ -72,7 +72,7 @@ Chaque article de courses a un identifiant unique créé sur l'appareil, une lis
 
 ## Limites connues
 
-- 45 recettes au lieu des 150 visées : l'outil de validation est prêt, mais chaque nouvelle recette doit être relue par une personne.
+- 90 recettes au lieu des 150 visées (les 45 du lot 2 sont à relire) : l'outil de validation est prêt, mais chaque nouvelle recette doit être relue par une personne.
 - Pas de photos : un visuel original (emoji sur fond coloré) les remplace en attendant des photos sous licence.
 - Pas de compte ni de synchronisation pour l'instant (modèle et schéma prêts).
 - Pas de conversion pièces ↔ grammes (aucune équivalence documentée saisie) : ces cas sont marqués « à vérifier ».
