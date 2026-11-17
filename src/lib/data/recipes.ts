@@ -1097,6 +1097,105 @@ export const RECIPES: Recipe[] = [
       "Servez avec la pomme râpée et un filet de miel.",
     ],
   }),
+  // ——— Recettes au Thermomix (robot cuiseur) ———
+  r({
+    id: "tm-risotto-champignons", title: "Risotto aux champignons au Thermomix", emoji: "🍄",
+    description: "Un risotto crémeux sans rester devant la casserole : le robot remue pour vous.",
+    prep: 10, cook: 22, servings: 4, eq: ["thermomix"], tags: ["thermomix", "végétarien", "italien"],
+    ing: [i("riz-arborio", 300, "g"), i("champignon", 250, "g"), i("oignon", 1, "piece"), i("parmesan", 50, "g"), i("vin-blanc", 100, "ml", true), i("bouillon", 1, "piece"), i("huile-olive", 2, "cs"), i("beurre", 20, "g"), i("sel"), i("poivre")],
+    steps: [
+      "Mettez le parmesan en morceaux dans le bol, mixez 10 s vitesse 10 et réservez.",
+      "Mettez l'oignon coupé en deux dans le bol, mixez 5 s vitesse 5, raclez les parois. Ajoutez l'huile et faites revenir 3 min à 120 °C vitesse 1.",
+      "Ajoutez le riz et les champignons émincés, puis faites nacrer 3 min à 120 °C en sens inverse, vitesse 1, sans le gobelet.",
+      "Versez le vin blanc, puis 850 ml d'eau et le cube de bouillon. Faites cuire 16 min à 100 °C en sens inverse, vitesse 1, avec le panier posé sur le couvercle à la place du gobelet.",
+      "Versez dans un plat, ajoutez le beurre et le parmesan, mélangez doucement, poivrez et laissez reposer 2 minutes avant de servir.",
+    ],
+  }),
+  r({
+    id: "tm-veloute-potiron", title: "Velouté de potiron au Thermomix", emoji: "🎃",
+    description: "Un velouté doux et onctueux, prêt en une demi-heure.",
+    prep: 10, cook: 25, servings: 4, eq: ["thermomix"], tags: ["thermomix", "soupe", "végétarien", "automne"],
+    ing: [i("potiron", 800, "g"), i("pomme-de-terre", 200, "g"), i("oignon", 1, "piece"), i("bouillon", 1, "piece"), i("huile-olive", 1, "cs"), i("creme", 100, "ml", true), i("muscade", null, null, true), i("sel"), i("poivre")],
+    steps: [
+      "Mettez l'oignon coupé en deux dans le bol et mixez 5 s vitesse 5. Ajoutez l'huile et faites revenir 3 min à 120 °C vitesse 1.",
+      "Ajoutez le potiron épluché et la pomme de terre, coupés en morceaux, puis mixez 5 s vitesse 5.",
+      "Versez 600 ml d'eau et le cube de bouillon. Faites cuire 22 min à 100 °C vitesse 1.",
+      "Ajoutez la crème si vous le souhaitez, puis mixez 1 min en augmentant progressivement jusqu'à la vitesse 10. Salez, poivrez, ajoutez un peu de muscade et servez chaud.",
+    ],
+  }),
+  r({
+    id: "tm-soupe-poireaux", title: "Soupe poireaux pommes de terre au Thermomix", emoji: "🥣",
+    description: "La soupe de tous les jours, simple et réconfortante.",
+    prep: 10, cook: 25, servings: 4, eq: ["thermomix"], tags: ["thermomix", "soupe", "végétarien", "hiver"],
+    ing: [i("poireau", 2, "piece"), i("pomme-de-terre", 400, "g"), i("oignon", 1, "piece"), i("beurre", 20, "g"), i("bouillon", 1, "piece"), i("creme", 50, "ml", true), i("sel"), i("poivre")],
+    steps: [
+      "Mettez l'oignon dans le bol, mixez 5 s vitesse 5, ajoutez le beurre et faites revenir 3 min à 120 °C vitesse 1.",
+      "Ajoutez les poireaux lavés et coupés en tronçons et les pommes de terre en morceaux. Mixez 5 s vitesse 5.",
+      "Versez 800 ml d'eau et le cube de bouillon, puis faites cuire 22 min à 100 °C vitesse 1.",
+      "Mixez 1 min en augmentant progressivement jusqu'à la vitesse 10, ajoutez la crème si vous le souhaitez, rectifiez l'assaisonnement et servez.",
+    ],
+  }),
+  r({
+    id: "tm-puree", title: "Purée de pommes de terre au Thermomix", emoji: "🥔",
+    description: "Une purée maison légère, sans grumeaux et sans surveiller la casserole.",
+    prep: 10, cook: 25, servings: 4, eq: ["thermomix"], tags: ["thermomix", "accompagnement", "végétarien", "familial"],
+    ing: [i("pomme-de-terre", 800, "g"), i("lait", 300, "ml"), i("beurre", 40, "g"), i("muscade", null, null, true), i("sel"), i("poivre")],
+    steps: [
+      "Épluchez les pommes de terre et coupez-les en morceaux de taille égale.",
+      "Mettez le fouet sur les lames. Ajoutez les pommes de terre, le lait, 150 ml d'eau et une pincée de sel. Faites cuire 25 min à 98 °C vitesse 1.",
+      "Vérifiez la cuisson avec la pointe d'un couteau, ajoutez le beurre, puis mélangez 20 s vitesse 3 avec le fouet (pas plus, sinon la purée devient élastique).",
+      "Poivrez, ajoutez un peu de muscade si vous aimez et servez aussitôt.",
+    ],
+  }),
+  r({
+    id: "tm-bolognaise", title: "Pâtes à la bolognaise au Thermomix", emoji: "🍝",
+    description: "Une sauce mijotée riche en légumes, pendant que les pâtes cuisent à côté.",
+    prep: 10, cook: 30, servings: 4, eq: ["thermomix", "casserole"], tags: ["thermomix", "pâtes", "familial", "italien"],
+    ing: [i("boeuf-hache", 400, "g"), i("tomate-concassee", 400, "g"), i("concentre-tomate", 1, "cs"), i("carotte", 1, "piece"), i("oignon", 1, "piece"), i("ail", 1, "piece"), i("huile-olive", 2, "cs"), i("herbes-provence", 1, "cc"), i("pates", 400, "g"), i("parmesan", 40, "g", true), i("sel"), i("poivre")],
+    steps: [
+      "Mettez l'oignon, l'ail et la carotte en morceaux dans le bol, mixez 5 s vitesse 5 et raclez les parois. Ajoutez l'huile et faites revenir 5 min à 120 °C vitesse 1.",
+      "Ajoutez la viande hachée et faites cuire 5 min à 120 °C en sens inverse, vitesse 1, en émiettant si besoin avec la spatule.",
+      "Ajoutez les tomates concassées, le concentré, les herbes, du sel et du poivre. Faites mijoter 20 min à 100 °C en sens inverse, vitesse 1, avec le panier posé sur le couvercle.",
+      "Pendant ce temps, faites cuire les pâtes dans une grande casserole d'eau bouillante salée, puis égouttez-les.",
+      "Servez les pâtes nappées de sauce, avec du parmesan râpé si vous le souhaitez.",
+    ],
+  }),
+  r({
+    id: "tm-dahl-lentilles", title: "Dahl de lentilles corail au Thermomix", emoji: "🍛",
+    description: "Lentilles corail fondantes au lait de coco et aux épices douces.",
+    prep: 10, cook: 25, servings: 4, eq: ["thermomix"], tags: ["thermomix", "végétarien", "épicé", "indien"],
+    ing: [i("lentille-corail", 250, "g"), i("lait-coco", 400, "ml"), i("tomate-concassee", 400, "g"), i("oignon", 1, "piece"), i("ail", 2, "piece"), i("gingembre", 10, "g", true), i("curry", 2, "cc"), i("huile-neutre", 1, "cs"), i("coriandre", 1, "piece", true), i("sel")],
+    steps: [
+      "Mettez l'oignon, l'ail et le gingembre épluchés dans le bol, mixez 5 s vitesse 5. Ajoutez l'huile et le curry, puis faites revenir 3 min à 120 °C vitesse 1.",
+      "Rincez les lentilles. Ajoutez-les dans le bol avec les tomates concassées, le lait de coco, 300 ml d'eau et du sel.",
+      "Faites cuire 22 min à 100 °C en sens inverse, vitesse 1, avec le panier posé sur le couvercle pour éviter les projections.",
+      "Goûtez, rectifiez le sel, parsemez de coriandre ciselée et servez avec du riz ou du pain.",
+    ],
+  }),
+  r({
+    id: "tm-houmous", title: "Houmous au Thermomix", emoji: "🧆",
+    description: "Une crème de pois chiches citronnée, pour l'apéritif ou un repas léger.",
+    prep: 10, cook: 0, servings: 4, eq: ["thermomix"], tags: ["thermomix", "apéritif", "végétarien", "rapide", "sans cuisson"],
+    ing: [i("pois-chiche", 400, "g"), i("citron", 1, "piece"), i("ail", 1, "piece"), i("huile-olive", 3, "cs"), i("cumin", 1, "cc"), i("paprika", null, null, true), i("sel")],
+    steps: [
+      "Égouttez les pois chiches en gardant un peu de leur jus, et pressez le citron.",
+      "Mettez l'ail dans le bol et mixez 3 s vitesse 7. Ajoutez les pois chiches, le jus de citron, l'huile, le cumin, du sel et 3 cuillères à soupe du jus des pois chiches.",
+      "Mixez 1 min vitesse 6, raclez les parois, puis mixez encore 30 s vitesse 8. Ajoutez un peu de jus si le houmous est trop épais.",
+      "Versez dans un bol, arrosez d'un filet d'huile, saupoudrez de paprika et servez avec du pain ou des légumes crus.",
+    ],
+  }),
+  r({
+    id: "tm-compote-pommes", title: "Compote de pommes au Thermomix", emoji: "🍏",
+    description: "Une compote maison peu sucrée, à servir tiède ou froide.",
+    prep: 10, cook: 15, servings: 4, eq: ["thermomix"], tags: ["thermomix", "dessert", "végétarien", "enfants"],
+    ing: [i("pomme", 1000, "g"), i("citron", 1, "piece", true), i("sucre", 30, "g"), i("sucre-vanille", 1, "piece", true)],
+    steps: [
+      "Épluchez les pommes, retirez le cœur et coupez-les en quartiers.",
+      "Mettez-les dans le bol avec 50 ml d'eau, quelques gouttes de jus de citron et le sucre. Faites cuire 15 min à 100 °C vitesse 1.",
+      "Pour une compote lisse, mixez 20 s vitesse 6. Pour une compote avec des morceaux, mixez 5 s vitesse 4.",
+      "Laissez tiédir avant de servir, ou conservez 3 jours au réfrigérateur dans un récipient fermé.",
+    ],
+  }),
 ];
 
 export const RECIPES_BY_ID: ReadonlyMap<string, Recipe> = new Map(RECIPES.map((rec) => [rec.id, rec]));

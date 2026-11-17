@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useStore } from "@/lib/store";
 import { useRanking } from "@/lib/useRanking";
 import { EMPTY_FILTERS } from "@/lib/domain/recommend";
@@ -10,6 +10,7 @@ import { RecipeCard } from "@/components/RecipeCard";
 import { Onboarding } from "@/components/Onboarding";
 import { CartIcon, SearchIcon } from "@/components/Icons";
 import type { ScoredRecipe } from "@/lib/domain/recommend";
+import { searchIngredients, searchRecipeTitles } from "@/lib/domain/search";
 
 const QUICK = [
   { label: "15 min", href: "/recettes/?t=15" },
@@ -17,6 +18,7 @@ const QUICK = [
   { label: "Four", href: "/recettes/?m=four" },
   { label: "Poêle", href: "/recettes/?m=poele" },
   { label: "Cocotte", href: "/recettes/?m=cocotte" },
+  { label: "Thermomix", href: "/recettes/?m=thermomix" },
 ];
 
 function Row({ title, items, more }: { title: string; items: ScoredRecipe[]; more?: string }) {
@@ -38,6 +40,10 @@ export default function HomePage() {
   const store = useStore();
   const router = useRouter();
   const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const ingSuggestions = useMemo(() => searchIngredients(q, 5), [q]);
+  const recipeSuggestions = useMemo(() => searchRecipeTitles(q, 4), [q]);
+  const showSuggestions = open && q.trim() !== "" && (ingSuggestions.length > 0 || recipeSuggestions.length > 0);
   const ranked = useRanking(EMPTY_FILTERS);
 
   const hasStock = store.inventory.length > 0;
@@ -49,7 +55,12 @@ export default function HomePage() {
 
   function search(e: FormEvent) {
     e.preventDefault();
-    router.push(`/recettes/?q=${encodeURIComponent(q)}`);
+    goSearch(q);
+  }
+
+  function goSearch(text: string) {
+    setOpen(false);
+    router.push(`/recettes/?q=${encodeURIComponent(text.trim())}`);
   }
 
   return (
@@ -58,10 +69,38 @@ export default function HomePage() {
 
       {store.ready && !store.settings.onboarded && <div className="mt-4"><Onboarding /></div>}
 
-      <form onSubmit={search} className="relative mt-4">
-        <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" width={20} height={20} />
-        <input type="search" className="input pl-11" value={q} onChange={(e) => setQ(e.target.value)}
-          placeholder="Une recette, un ingrédient…" aria-label="Rechercher une recette" enterKeyHint="search" />
+      <form onSubmit={search} className="relative z-30 mt-4">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" width={20} height={20} />
+            <input type="search" className="input pl-11" value={q} autoComplete="off"
+              onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)}
+              placeholder="Une recette, un ingrédient…" aria-label="Rechercher une recette" enterKeyHint="search" />
+          </div>
+          <button type="submit" className="btn-primary shrink-0 px-4" disabled={q.trim() === ""}>Chercher</button>
+        </div>
+        {showSuggestions && (
+          <ul className="card absolute inset-x-0 top-[56px] max-h-80 overflow-y-auto shadow-lg" role="listbox" aria-label="Suggestions">
+            {ingSuggestions.map((ing) => (
+              <li key={`i-${ing.id}`}>
+                <button type="button" onClick={() => goSearch(ing.name)}
+                  className="flex min-h-[52px] w-full items-center gap-3 px-4 text-left">
+                  <SearchIcon className="shrink-0 text-stone-400" width={18} height={18} />
+                  <span>Recettes avec <strong>{ing.name.toLowerCase()}</strong></span>
+                </button>
+              </li>
+            ))}
+            {recipeSuggestions.map((r) => (
+              <li key={`r-${r.id}`}>
+                <Link href={`/recettes/${r.id}/`} onClick={() => setOpen(false)}
+                  className="flex min-h-[52px] w-full items-center gap-3 border-t border-stone-100 px-4 text-left">
+                  <span className="w-[18px] shrink-0 text-center">{r.emoji}</span>
+                  <span>{r.title}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </form>
 
       <div className="no-scrollbar -mx-4 mt-3 flex gap-2 overflow-x-auto px-4">

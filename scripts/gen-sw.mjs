@@ -5,6 +5,7 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
 const OUT = "out";
+const BASE = process.env.BASE_PATH || "";
 const files = [];
 (function walk(dir) {
   for (const f of readdirSync(dir)) {
@@ -19,6 +20,7 @@ const urls = files
   .filter((u) => u !== "/sw.js" && !u.endsWith(".txt") && !u.endsWith(".map"))
   .map((u) => u.replace(/index\.html$/, ""))
   // Next demande ces fichiers avec les crochets encodés ([id] -> %5Bid%5D).
+  .map((u) => BASE + u)
   .map((u) => u.replace(/\[/g, "%5B").replace(/\]/g, "%5D"));
 
 const hash = createHash("sha256");
@@ -48,11 +50,12 @@ self.addEventListener("fetch", (e) => {
   // Les pages : réseau d'abord (pour les mises à jour), cache si hors connexion.
   if (req.mode === "navigate") {
     e.respondWith(
-      fetch(req)
+      // no-cache : on redemande toujours la page au serveur (GitHub garde sinon l'ancienne 10 minutes).
+      fetch(new Request(req, { cache: "no-cache" }))
         .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return res; })
         .catch(async () => (await caches.match(req, { ignoreSearch: true }))
           ?? (await caches.match(url.pathname.endsWith("/") ? url.pathname : url.pathname + "/"))
-          ?? (await caches.match("/"))),
+          ?? (await caches.match("${BASE}/"))),
     );
     return;
   }
