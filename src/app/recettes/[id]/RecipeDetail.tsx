@@ -7,7 +7,7 @@ import { RECIPES_BY_ID } from "@/lib/data/recipes";
 import { getIngredient } from "@/lib/data/ingredients";
 import { recipeAvailability, type LineStatus } from "@/lib/domain/availability";
 import { seasonLevel } from "@/lib/data/seasonality";
-import { formatAmount } from "@/lib/domain/units";
+import { formatAmount, formatRecipeAmount } from "@/lib/domain/units";
 import { cookedIngredientsInStock } from "@/lib/domain/stock";
 import { EQUIPMENT_LABELS, formatMinutes } from "@/lib/labels";
 import { useStore } from "@/lib/store";
@@ -16,6 +16,8 @@ import { Visual } from "@/components/RecipeCard";
 import { BackIcon, CalendarIcon, CartIcon, MinusIcon, PlusIcon } from "@/components/Icons";
 import { Sheet } from "@/components/Sheet";
 import { CarnetBlock } from "@/components/CarnetBlock";
+import { CookingMode, StepText, type CookingIngredient } from "@/components/CookingMode";
+import { scaleStep } from "@/lib/domain/cooking";
 import { MEALS, MEAL_LABELS, dayLabel, nextDay, plannedAt, toDateKey, weekDays, type Meal } from "@/lib/domain/plan";
 
 const STATUS_STYLE: Record<LineStatus, { icon: string; cls: string; label: string }> = {
@@ -34,6 +36,7 @@ export function RecipeDetail({ id }: { id: string }) {
   const [planning, setPlanning] = useState(false);
   const [together, setTogether] = useState(false);
   const [cooking, setCooking] = useState(false);
+  const [cookMode, setCookMode] = useState(false);
   const [finished, setFinished] = useState<Set<string>>(new Set());
   /** Empêche un double appui de déduire deux fois : une seule validation par ouverture du panneau. */
   const cookSubmitted = useRef(false);
@@ -42,6 +45,18 @@ export function RecipeDetail({ id }: { id: string }) {
     [recipe, store.inventoryMap, servings],
   );
   const month = new Date().getMonth() + 1;
+  const scaled = servings !== recipe.servings;
+  const thermomix = recipe.equipment.some((e) => e.type === "thermomix" && e.required);
+  const steps = useMemo(
+    () => recipe.instructions.map((st) => scaleStep(st, recipe.servings, servings)),
+    [recipe, servings],
+  );
+  const cookingIngredients: CookingIngredient[] = a.lines.map((l) => ({
+    id: l.line.ingredientId,
+    name: l.ingredient?.name ?? l.line.ingredientId,
+    amount: l.need ? formatRecipeAmount(l.need) : null,
+    optional: !!l.line.optional,
+  }));
   const toAdd = a.lines.filter((l) => !l.line.optional && l.status !== "ok").length;
 
   function addMissing() {
@@ -116,6 +131,24 @@ export function RecipeDetail({ id }: { id: string }) {
           </div>
         </div>
 
+        {scaled && (
+          <div className="mt-3 rounded-2xl bg-brand-50 p-3 text-sm text-brand-700">
+            <p>
+              Quantités recalculées pour <strong>{servings} pers.</strong> (recette prévue pour {recipe.servings}),
+              y compris l&apos;eau et les liquides des étapes, en gras.
+            </p>
+            {thermomix && servings > recipe.servings && (
+              <p className="mt-2 text-warm-600">
+                Thermomix : ne dépassez pas le repère maximal du bol (2,2 l). Au-delà, faites en deux fois.
+              </p>
+            )}
+            <p className="mt-2 text-stone-600">Les temps de cuisson ne changent pas : vérifiez la cuisson si vous avez beaucoup augmenté.</p>
+            <button type="button" className="mt-2 font-semibold underline" onClick={() => setServings(recipe.servings)}>
+              Revenir à {recipe.servings} pers.
+            </button>
+          </div>
+        )}
+
         <ul className="card mt-3 divide-y divide-stone-100">
           {a.lines.map((l) => {
             const st = STATUS_STYLE[l.status];
@@ -125,7 +158,7 @@ export function RecipeDetail({ id }: { id: string }) {
                 <span className={`mt-0.5 w-5 text-center font-bold ${l.line.optional && l.status === "missing" ? "text-stone-400" : st.cls}`} aria-label={st.label}>{l.line.optional && l.status === "missing" ? "–" : st.icon}</span>
                 <div className="flex-1">
                   <p>
-                    {l.need ? <span className="font-semibold">{formatAmount(l.need)} </span> : null}
+                    {l.need ? <span className="font-semibold">{formatRecipeAmount(l.need)} </span> : null}
                     {l.ingredient?.name ?? l.line.ingredientId}
                     {!l.need && <span className="text-stone-500"> (selon le goût)</span>}
                     {l.line.optional && <span className="text-stone-500"> — facultatif</span>}
@@ -170,11 +203,15 @@ export function RecipeDetail({ id }: { id: string }) {
         </div>
 
         <h2 className="mt-8 text-lg font-bold">Préparation</h2>
-        <ol className="mb-8 mt-3 space-y-4">
-          {recipe.instructions.map((step, idx) => (
+        <button type="button" className="btn-primary mt-3 w-full" onClick={() => setCookMode(true)}>
+          👩‍🍳 Mode cuisine{scaled ? ` (${servings} pers.)` : ""}
+        </button>
+        <p className="mt-1 text-center text-xs text-stone-500">Étapes en grand, écran toujours allumé, minuteurs</p>
+        <ol className="mb-8 mt-4 space-y-4">
+          {steps.map((parts, idx) => (
             <li key={idx} className="flex gap-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-600 text-sm font-bold text-white">{idx + 1}</span>
-              <p className="pt-1 leading-relaxed">{step}</p>
+              <p className="pt-1 leading-relaxed"><StepText parts={parts} /></p>
             </li>
           ))}
         </ol>
@@ -183,6 +220,15 @@ export function RecipeDetail({ id }: { id: string }) {
           🍳 J&apos;ai cuisiné
         </button>
       </div>
+
+      {cookMode && (
+        <CookingMode recipe={recipe} servings={servings} ingredients={cookingIngredients}
+          onClose={() => setCookMode(false)}
+          onFinish={() => {
+            setCookMode(false);
+            openCooked();
+          }} />
+      )}
 
       <Sheet open={together} onClose={() => setTogether(false)} title="Prévoir ce plat à deux">
         {together && (
