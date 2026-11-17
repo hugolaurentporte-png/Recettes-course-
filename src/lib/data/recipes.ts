@@ -1,4 +1,5 @@
 import type { Equipment, Recipe, RecipeIngredient, Unit } from "../domain/types";
+import IMPORTED from "./recettes-importees.json" with { type: "json" };
 
 /**
  * Catalogue de recettes V1 : recettes classiques du quotidien, quantités usuelles pour le nombre de portions indiqué.
@@ -50,7 +51,7 @@ function r(d: Def): Recipe {
   };
 }
 
-export const RECIPES: Recipe[] = [
+export const BASE_RECIPES: Recipe[] = [
   r({
     id: "poelee-pdt-lardons", title: "Poêlée de pommes de terre aux lardons", emoji: "🥓",
     description: "Pommes de terre dorées, lardons et oignon : un classique rapide.",
@@ -1197,5 +1198,11 @@ export const RECIPES: Recipe[] = [
     ],
   }),
 ];
+
+/**
+ * Recettes importées puis validées par Hugo (générées par `npm run import:recipes`).
+ * Les brouillons non validés ne sont jamais chargés par l'appli.
+ */
+export const RECIPES: Recipe[] = [...BASE_RECIPES, ...(IMPORTED as Recipe[])];
 
 export const RECIPES_BY_ID: ReadonlyMap<string, Recipe> = new Map(RECIPES.map((rec) => [rec.id, rec]));

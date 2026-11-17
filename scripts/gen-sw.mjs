@@ -18,6 +18,9 @@ const files = [];
 const urls = files
   .map((p) => "/" + relative(OUT, p).split(sep).join("/"))
   .filter((u) => u !== "/sw.js" && !u.endsWith(".txt") && !u.endsWith(".map"))
+  // Recettes importées (plusieurs centaines) : mises en cache à la première visite, pas à l'installation,
+  // sinon chaque mise à jour retéléchargerait ~25 Mo sur le téléphone.
+  .filter((u) => !u.startsWith("/recettes/imp-"))
   .map((u) => u.replace(/index\.html$/, ""))
   // Next demande ces fichiers avec les crochets encodés ([id] -> %5Bid%5D).
   .map((u) => BASE + u)
