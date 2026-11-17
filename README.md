@@ -87,3 +87,9 @@ Chaque article de courses a un identifiant unique créé sur l'appareil, une lis
 
 L'import est idempotent (mêmes fichiers à chaque lancement, statuts « valide » / « refuse » conservés).
 Les brouillons ne sont pas chargés par l'appli : la publication se fera après relecture humaine.
+
+### Thermomix
+
+`npm run import:thermomix` importe `data/import/recettes_thermomix_300_complet.json` (ou le fichier de 220
+recettes supplémentaires si les 80 premières sont déjà importées, jamais les deux) en brouillon dans
+`src/lib/data/drafts/thermomix-import.json`, avec le rapport `data/import/rapport-thermomix.json`.

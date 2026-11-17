@@ -1,5 +1,6 @@
 import type { Equipment, Recipe, RecipeIngredient, Unit } from "../domain/types";
 import IMPORTED from "./recettes-importees.json" with { type: "json" };
+import THERMOMIX from "./thermomix-publiees.json" with { type: "json" };
 
 /**
  * Catalogue de recettes V1 : recettes classiques du quotidien, quantités usuelles pour le nombre de portions indiqué.
@@ -1203,6 +1204,9 @@ export const BASE_RECIPES: Recipe[] = [
  * Recettes importées puis validées par Hugo (générées par `npm run import:recipes`).
  * Les brouillons non validés ne sont jamais chargés par l'appli.
  */
-export const RECIPES: Recipe[] = [...BASE_RECIPES, ...(IMPORTED as Recipe[])];
+export const IMPORTED_RECIPES = IMPORTED as Recipe[];
+/** Recettes Thermomix importées et validées (générées par `npm run import:thermomix`). */
+export const THERMOMIX_RECIPES = THERMOMIX as Recipe[];
+export const RECIPES: Recipe[] = [...BASE_RECIPES, ...IMPORTED_RECIPES, ...THERMOMIX_RECIPES];
 
 export const RECIPES_BY_ID: ReadonlyMap<string, Recipe> = new Map(RECIPES.map((rec) => [rec.id, rec]));

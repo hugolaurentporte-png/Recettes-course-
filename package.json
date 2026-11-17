@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "validate:recipes": "vitest run tests/catalog.test.ts",
     "test:e2e": "node e2e/parcours.cjs",
-    "import:recipes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/ts-resolve.mjs scripts/import-recipes.ts"
+    "import:recipes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/ts-resolve.mjs scripts/import-recipes.ts",
+    "import:thermomix": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/ts-resolve.mjs scripts/import-thermomix.ts"
   },
   "dependencies": {
     "idb": "8.0.4",

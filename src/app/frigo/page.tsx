@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
 import { ALL_EQUIPMENT, useStore } from "@/lib/store";
-import { CATEGORY_LABELS, CATEGORY_ORDER, COMMON_INGREDIENT_IDS, INGREDIENTS, getIngredient } from "@/lib/data/ingredients";
+import { CATEGORY_ICONS, CATEGORY_LABELS, CATEGORY_ORDER, COMMON_INGREDIENT_IDS, INGREDIENTS, getIngredient } from "@/lib/data/ingredients";
 import { searchIngredients } from "@/lib/domain/search";
 import { HOME_AISLES, isCustomStock } from "@/lib/domain/stock";
 import { AISLE_ICONS, AISLE_LABELS, AISLE_ORDER } from "@/lib/domain/categorize";
 import { EDITABLE_UNITS, UNITS, formatAmount } from "@/lib/domain/units";
-import type { Ingredient, InventoryItem, Unit } from "@/lib/domain/types";
+import type { Ingredient, IngredientCategory, InventoryItem, Unit } from "@/lib/domain/types";
+import { seasonLevel } from "@/lib/data/seasonality";
 import { EQUIPMENT_LABELS } from "@/lib/labels";
 import { Sheet } from "@/components/Sheet";
 import { BoltIcon, PlusIcon, XIcon } from "@/components/Icons";
@@ -19,6 +20,7 @@ export default function FrigoPage() {
   const toast = useToast();
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<InventoryItem | null>(null);
+  const [browsing, setBrowsing] = useState<IngredientCategory | null>(null);
 
   const results = useMemo(() => searchIngredients(q), [q]);
   const owned = store.inventoryMap;
@@ -112,6 +114,14 @@ export default function FrigoPage() {
           </button>
         </div>
       )}
+      <h2 className="section-title">Parcourir par catégorie</h2>
+      <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
+        {CATEGORY_ORDER.map((c) => (
+          <button key={c} type="button" className="chip shrink-0" onClick={() => setBrowsing(c)}>
+            <span aria-hidden="true">{CATEGORY_ICONS[c]}</span> {CATEGORY_LABELS[c]}
+          </button>
+        ))}
+      </div>
 
       {common.length > 0 && (
         <>
@@ -196,9 +206,51 @@ export default function FrigoPage() {
         </div>
       </section>
 
+      <Sheet open={browsing !== null} onClose={() => setBrowsing(null)} title={browsing ? CATEGORY_LABELS[browsing] : ""}>
+        {browsing && <CategoryList category={browsing} onAdd={(ing) => { store.addToInventory(ing.id); toast(`${ing.name} ajouté au frigo`); }} />}
+      </Sheet>
+
       <Sheet open={editing !== null} onClose={() => setEditing(null)} title={getIngredient(editing?.ingredientId ?? "")?.name ?? editing?.customName ?? ""}>
         {editing && <QuantityForm key={editing.id} item={editing} onClose={() => setEditing(null)} />}
       </Sheet>
+    </div>
+  );
+}
+
+/** Tous les ingrédients d'une catégorie, ceux de saison en premier. */
+function CategoryList({ category, onAdd }: { category: IngredientCategory; onAdd: (ing: Ingredient) => void }) {
+  const store = useStore();
+  const month = new Date().getMonth() + 1;
+  const all = INGREDIENTS.filter((i) => i.category === category)
+    .sort((a, b) => a.name.localeCompare(b.name, "fr"));
+  const inSeason = all.filter((i) => seasonLevel(i.id, month) === 2);
+  const others = all.filter((i) => seasonLevel(i.id, month) !== 2);
+  const row = (ing: Ingredient) => {
+    const has = store.inventoryMap.has(ing.id);
+    return (
+      <li key={ing.id}>
+        <button type="button" disabled={has} onClick={() => onAdd(ing)}
+          className="flex min-h-[52px] w-full items-center justify-between px-4 text-left disabled:text-stone-400">
+          <span>{ing.name}</span>
+          {has ? <span className="text-xs">Déjà là</span> : <PlusIcon className="text-brand-600" />}
+        </button>
+      </li>
+    );
+  };
+  return (
+    <div className="space-y-3">
+      {inSeason.length > 0 && (
+        <section>
+          <h3 className="mb-1 px-1 text-sm font-semibold text-brand-700">🌱 De saison en ce moment</h3>
+          <ul className="card divide-y divide-stone-100">{inSeason.map(row)}</ul>
+        </section>
+      )}
+      {others.length > 0 && (
+        <section>
+          {inSeason.length > 0 && <h3 className="mb-1 px-1 text-sm font-semibold text-stone-600">Tous les autres</h3>}
+          <ul className="card divide-y divide-stone-100">{others.map(row)}</ul>
+        </section>
+      )}
     </div>
   );
 }

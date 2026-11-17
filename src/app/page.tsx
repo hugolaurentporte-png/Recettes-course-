@@ -110,7 +110,7 @@ export default function HomePage() {
         {QUICK.map((f) => <Link key={f.href} href={f.href} className="chip">{f.label}</Link>)}
       </div>
 
-      <Link href={hasStock ? "/recettes/?ready=1" : "/recettes/"} className="btn-primary mt-5 w-full py-4 text-lg">
+      <Link href="/manger/" className="btn-primary mt-5 w-full py-4 text-lg">
         🍽️ Qu&apos;est-ce qu&apos;on mange&nbsp;?
       </Link>
 
