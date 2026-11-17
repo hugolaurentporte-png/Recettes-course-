@@ -21,3 +21,14 @@ describe("recherche avec suggestions", () => {
     expect(r.some((x) => x.title.toLowerCase().startsWith("omelette"))).toBe(true);
   });
 });
+
+describe("fruits et légumes du catalogue", () => {
+  it("trouve le potimarron et les légumes d'hiver", () => {
+    expect(searchIngredients("potim")[0]?.id).toBe("potimarron");
+    expect(searchIngredients("panais")[0]?.category).toBe("legumes");
+    expect(searchIngredients("courge").map((i) => i.id)).toEqual(expect.arrayContaining(["potimarron", "butternut"]));
+  });
+  it("range les fruits dans la catégorie fruits", () => {
+    expect(searchIngredients("myrtil")[0]?.category).toBe("fruits");
+  });
+});

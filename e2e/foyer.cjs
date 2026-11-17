@@ -92,7 +92,7 @@ async function addToFridge(page, name, qty, unit) {
   await page.keyboard.press("Enter");
   if (qty) {
     await page.waitForTimeout(150);
-    const row = page.getByRole("button", { name: new RegExp(`^${qty.label}`) }).first();
+    const row = page.getByRole("button", { name: new RegExp(`^${qty.label} `) }).first(); // ligne du frigo, pas la catégorie
     await row.click();
     await page.getByLabel("Quantité").fill(String(qty.value));
     await page.getByLabel("Unité").selectOption(unit);
