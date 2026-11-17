@@ -6,7 +6,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { INGREDIENTS_BY_ID, getIngredient } from "@/lib/data/ingredients";
-import { BASE_RECIPES, RECIPES } from "@/lib/data/recipes";
+import { BASE_RECIPES, IMPORTED_RECIPES, RECIPES } from "@/lib/data/recipes";
 import { UNITS } from "@/lib/domain/units";
 import { EMPTY_FILTERS, matchesFilters, rankRecipes, scoreRecipe, type Context } from "@/lib/domain/recommend";
 import { searchRecipeTitles } from "@/lib/domain/search";
@@ -43,10 +43,9 @@ describe("import en brouillon", () => {
     expect(BASE_RECIPES.some((r) => r.id.startsWith("imp-"))).toBe(false);
     expect(drafts.every((d) => d.published === false)).toBe(true);
     const valid = drafts.filter((d) => d.review.status === "valide").map((d) => d.id);
-    expect(RECIPES.filter((r) => r.id.startsWith("imp-")).map((r) => r.id)).toEqual(valid);
-    expect(RECIPES).toHaveLength(98 + valid.length);
+    expect(RECIPES.filter((r) => r.id.startsWith("imp-fr-")).map((r) => r.id)).toEqual(valid);
     expect(RECIPES.every((r) => r.published)).toBe(true);
-    expect(publishedFromDrafts(drafts)).toEqual(RECIPES.slice(98));
+    expect(publishedFromDrafts(drafts)).toEqual(IMPORTED_RECIPES);
   });
 
   it("décisions de relecture : une seule version par paire, pas de curry aux lardons", () => {

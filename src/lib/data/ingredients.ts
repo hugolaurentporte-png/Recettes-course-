@@ -118,6 +118,7 @@ const ROWS: Row[] = [
   ["litchi", "Litchis", "fruits", "g", [], ""],
   ["noix-coco", "Noix de coco", "fruits", "piece", [], ""],
   ["datte", "Dattes", "fruits", "g", [], ""],
+  ["pruneau", "Pruneaux", "epicerie", "g", [], ""],
   // Viandes
   ["poulet", "Blancs de poulet", "viandes", "g", ["filet de poulet", "escalope de poulet", "blanc de poulet"], ""],
   ["cuisse-poulet", "Cuisses de poulet", "viandes", "piece", ["pilons"], ""],
@@ -177,6 +178,10 @@ const ROWS: Row[] = [
   ["quinoa", "Quinoa", "feculents", "g", [], ""],
   ["boulgour", "Boulgour", "feculents", "g", ["bulgur"], ""],
   ["chapelure", "Chapelure", "epicerie", "g", [], ""],
+  ["fecule", "Fécule de maïs", "epicerie", "g", ["maizena"], ""],
+  ["polenta", "Polenta", "feculents", "g", ["polenta instantanee"], ""],
+  ["cacao", "Cacao en poudre", "epicerie", "g", [], ""],
+  ["tomate-sechee", "Tomates séchées", "conserves", "g", [], ""],
   ["gnocchi", "Gnocchis", "feculents", "g", [], ""],
   // Conserves & épicerie
   ["tomate-concassee", "Tomates concassées", "conserves", "g", ["pulpe de tomate", "tomates pelees"], ""],
@@ -212,6 +217,10 @@ const ROWS: Row[] = [
   ["muscade", "Noix de muscade", "condiments", "pincee", ["muscade"], ""],
   ["herbes-provence", "Herbes de Provence", "condiments", "cc", [], "s"],
   ["ras-el-hanout", "Ras el hanout", "condiments", "cc", [], ""],
+  ["cannelle", "Cannelle", "condiments", "pincee", [], ""],
+  ["vanille", "Vanille", "condiments", "pincee", ["gousse de vanille"], ""],
+  ["origan", "Origan", "condiments", "cc", [], ""],
+  ["verveine", "Verveine", "condiments", "pincee", [], ""],
   // Surgelés
   ["petit-pois-surgele", "Petits pois surgelés", "surgeles", "g", [], ""],
   ["epinard-surgele", "Épinards surgelés", "surgeles", "g", [], ""],
