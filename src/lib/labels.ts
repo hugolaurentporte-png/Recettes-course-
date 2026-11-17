@@ -6,6 +6,7 @@ export const EQUIPMENT_LABELS: Record<Equipment, string> = {
   casserole: "Casserole",
   cocotte: "Cocotte",
   airfryer: "Air fryer",
+  thermomix: "Thermomix",
   "sans-cuisson": "Sans cuisson",
 };
 

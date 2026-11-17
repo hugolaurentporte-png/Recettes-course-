@@ -9,14 +9,14 @@ import {
 import { INGREDIENTS, getIngredient } from "./data/ingredients";
 import * as db from "./storage/db";
 
-export const ALL_EQUIPMENT: Equipment[] = ["four", "poele", "casserole", "cocotte", "airfryer", "sans-cuisson"];
+export const ALL_EQUIPMENT: Equipment[] = ["four", "poele", "casserole", "cocotte", "airfryer", "thermomix", "sans-cuisson"];
 
 export interface Settings {
   onboarded: boolean;
   ownedEquipment: Equipment[];
 }
 
-const DEFAULT_SETTINGS: Settings = { onboarded: false, ownedEquipment: ALL_EQUIPMENT };
+const DEFAULT_SETTINGS: Settings = { onboarded: false, ownedEquipment: ALL_EQUIPMENT.filter((e) => e !== "thermomix") };
 
 interface State {
   ready: boolean;

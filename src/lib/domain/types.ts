@@ -60,7 +60,7 @@ export interface Ingredient {
   seasonal?: boolean;
 }
 
-export type Equipment = "four" | "poele" | "casserole" | "cocotte" | "airfryer" | "sans-cuisson";
+export type Equipment = "four" | "poele" | "casserole" | "cocotte" | "airfryer" | "thermomix" | "sans-cuisson";
 
 export interface RecipeIngredient {
   ingredientId: string;
