@@ -64,6 +64,9 @@ export default function CoursesPage() {
           <h1 className="text-2xl font-bold">Mes courses</h1>
           <span className="flex items-baseline gap-3 text-sm text-stone-500">
             {toBuy === 0 ? "Rien à acheter" : `${toBuy} à acheter`}
+            <Link href="/partage/" className="font-semibold text-brand-700" aria-label={store.household ? "Liste partagée" : "Partager la liste"}>
+              {store.household ? (store.syncStatus.failing ? "👥 Hors ligne" : "👥 Partagée") : "👥 Partager"}
+            </Link>
             <Link href="/budget/" className="font-semibold text-brand-700">💶 Budget</Link>
           </span>
         </div>
