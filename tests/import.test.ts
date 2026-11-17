@@ -6,12 +6,12 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { INGREDIENTS_BY_ID, getIngredient } from "@/lib/data/ingredients";
-import { RECIPES } from "@/lib/data/recipes";
+import { BASE_RECIPES, RECIPES } from "@/lib/data/recipes";
 import { UNITS } from "@/lib/domain/units";
 import { EMPTY_FILTERS, matchesFilters, rankRecipes, scoreRecipe, type Context } from "@/lib/domain/recommend";
 import { searchRecipeTitles } from "@/lib/domain/search";
 import { activeItems, addRecipeToList, displayAmounts } from "@/lib/domain/shopping";
-import { importRecipes, type DraftRecipe, type SourceFile } from "@/lib/import/recipeImport";
+import { importRecipes, publishedFromDrafts, type DraftRecipe, type SourceFile } from "@/lib/import/recipeImport";
 import type { Recipe } from "@/lib/domain/types";
 import { ctx, inv } from "./helpers";
 
@@ -38,16 +38,33 @@ function filesUnder(dir: string): string[] {
 }
 
 describe("import en brouillon", () => {
-  it("les 98 recettes existantes sont intactes et aucune recette importée n'est publiée", () => {
-    expect(RECIPES).toHaveLength(98);
-    expect(RECIPES.some((r) => r.id.startsWith("imp-"))).toBe(false);
+  it("les 98 recettes existantes sont intactes ; seules les recettes validées sont publiées", () => {
+    expect(BASE_RECIPES).toHaveLength(98);
+    expect(BASE_RECIPES.some((r) => r.id.startsWith("imp-"))).toBe(false);
     expect(drafts.every((d) => d.published === false)).toBe(true);
+    const valid = drafts.filter((d) => d.review.status === "valide").map((d) => d.id);
+    expect(RECIPES.filter((r) => r.id.startsWith("imp-")).map((r) => r.id)).toEqual(valid);
+    expect(RECIPES).toHaveLength(98 + valid.length);
+    expect(RECIPES.every((r) => r.published)).toBe(true);
+    expect(publishedFromDrafts(drafts)).toEqual(RECIPES.slice(98));
+  });
+
+  it("décisions de relecture : une seule version par paire, pas de curry aux lardons", () => {
+    const pub = new Set(RECIPES.map((r) => r.id));
+    for (const d of drafts) {
+      if (d.review.variantOf) expect(pub.has(d.id)).toBe(false);
+      if (d.review.family === "curry" && d.ingredients.some((l) => l.ingredientId === "lardon")) expect(pub.has(d.id)).toBe(false);
+    }
+    const eggs = drafts.flatMap((d) => d.ingredients.filter((l) => l.ingredientId === "oeuf"));
+    expect(eggs.every((l) => l.quantity === 8)).toBe(true);
+    const lardons = drafts.flatMap((d) => d.ingredients.filter((l) => l.ingredientId === "lardon"));
+    expect(lardons.every((l) => l.quantity === 250)).toBe(true);
   });
 
   it("le code de l'appli ne charge pas les brouillons", () => {
     const appFiles = [...filesUnder("src/app"), ...filesUnder("src/components"), ...filesUnder("src/lib")]
       .filter((f) => /\.(ts|tsx)$/.test(f) && !f.includes(join("src", "lib", "import")));
-    const offenders = appFiles.filter((f) => /drafts\/|recettes-import/.test(readFileSync(f, "utf8")));
+    const offenders = appFiles.filter((f) => /drafts\/|recettes-import\.json/.test(readFileSync(f, "utf8")));
     expect(offenders).toEqual([]);
   });
 
@@ -59,22 +76,22 @@ describe("import en brouillon", () => {
   });
 
   it("import idempotent : relancer donne exactement le même résultat", () => {
-    const again = importRecipes(source, RECIPES, drafts);
+    const again = importRecipes(source, BASE_RECIPES, drafts);
     expect(again.drafts).toEqual(drafts);
     expect(again.rejected).toEqual(report.rejets);
   });
 
-  it("une recette validée par un humain garde son statut au ré-import", () => {
+  it("une décision de relecture humaine est conservée au ré-import", () => {
     const first = drafts[0]!;
-    const previous = [{ ...first, review: { ...first.review, status: "valide" as const } }];
-    const again = importRecipes(source, RECIPES, previous);
-    expect(again.drafts[0]!.review.status).toBe("valide");
-    expect(again.drafts[1]!.review.status).toBe("brouillon");
+    const previous = [{ ...first, review: { ...first.review, status: "refuse" as const } }];
+    const again = importRecipes(source, BASE_RECIPES, previous);
+    expect(again.drafts[0]!.review.status).toBe("refuse");
+    expect(again.drafts[1]!.review.status).toBe(drafts[1]!.review.status);
   });
 
   it("aucun brouillon ne double une recette existante par son titre", () => {
     const norm = (t: string) => t.toLowerCase();
-    const titles = new Set(RECIPES.map((r) => norm(r.title)));
+    const titles = new Set(BASE_RECIPES.map((r) => norm(r.title)));
     expect(drafts.filter((d) => titles.has(norm(d.title)))).toEqual([]);
   });
 

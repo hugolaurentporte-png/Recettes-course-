@@ -10,11 +10,12 @@
  * Relancer la commande donne les mêmes fichiers ; les statuts « valide » / « refuse » déjà posés sont gardés.
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { RECIPES } from "../src/lib/data/recipes";
-import { FAMILY_CORRECTIONS, importRecipes, type DraftRecipe, type SourceFile } from "../src/lib/import/recipeImport";
+import { BASE_RECIPES as RECIPES } from "../src/lib/data/recipes";
+import { FAMILY_CORRECTIONS, importRecipes, publishedFromDrafts, type DraftRecipe, type SourceFile } from "../src/lib/import/recipeImport";
 
 const sourcePath = process.argv[2] ?? "data/import/recettes_1000_import.json";
 const draftsPath = "src/lib/data/drafts/recettes-import.json";
+const publishedPath = "src/lib/data/recettes-importees.json";
 const reportPath = "data/import/rapport-import.json";
 
 const source = JSON.parse(readFileSync(sourcePath, "utf8")) as SourceFile;
@@ -23,6 +24,8 @@ const previous: DraftRecipe[] = existsSync(draftsPath) ? JSON.parse(readFileSync
 const { drafts, rejected } = importRecipes(source, RECIPES, previous);
 
 writeFileSync(draftsPath, JSON.stringify(drafts, null, 1) + "\n");
+// Recettes validées, chargées par l'appli (JSON compact : il part dans l'appli).
+writeFileSync(publishedPath, JSON.stringify(publishedFromDrafts(drafts)) + "\n");
 
 const count = (pred: (d: DraftRecipe) => boolean) => drafts.filter(pred).length;
 const report = {
@@ -46,4 +49,5 @@ const report = {
 writeFileSync(reportPath, JSON.stringify(report, null, 2) + "\n");
 
 console.log(`${report.entrees} entrées : ${report.acceptees} brouillons, ${report.rejetees} rejetées (${report.doublonsDeRecettesExistantes} doublons).`);
+console.log(`${report.statuts.valide} validées et publiées, ${report.statuts.refuse} refusées à la relecture.`);
 console.log(`${report.variantesTresProches} variantes très proches, ${report.prochesDUneRecetteExistante} proches d'une recette existante.`);

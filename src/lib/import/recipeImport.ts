@@ -483,8 +483,7 @@ export function compareWithExisting(
 
 function warningsFor(f: FamilyKey, vegId: string, p: Protein, lines: RecipeIngredient[]): string[] {
   const w: string[] = [];
-  if (p.kind === "oeufs") w.push("6 œufs durs pour 4 personnes comme seule protéine : portion un peu juste, 8 œufs seraient plus rassasiants.");
-  if (p.kind === "lardons") w.push("180 g de lardons pour 4 personnes comme seule protéine : portion légère ; lardons déjà salés, saler peu.");
+  if (p.kind === "lardons") w.push("Lardons déjà salés : saler peu.");
   if (f === "curry" && p.kind === "lardons") w.push("Association curry coco + lardons inhabituelle : à goûter avant publication.");
   if (f === "gratin" && (vegId === "tomate" || vegId === "courgette" || vegId === "aubergine")) w.push("Légume riche en eau : le gratin peut rendre du jus, bien égoutter.");
   if (vegId === "fenouil") w.push("Mois conseillés du fichier (octobre à avril) différents du calendrier de l'appli (juin à octobre pour le fenouil de France).");
@@ -526,6 +525,11 @@ export function convertRecipe(src: SourceRecipe): { recipe: DraftRecipe; vegId: 
 
   const title = elide(src.nom);
   const corrections = [...notes];
+  // Décision de Hugo (2026-11-17) : portions de 4 plus rassasiantes quand c'est la seule protéine.
+  for (const l of lines) {
+    if (l.ingredientId === "oeuf" && l.quantity === 6) { l.quantity = 8; corrections.push("Œufs : 6 portés à 8 pour 4 personnes."); }
+    if (l.ingredientId === "lardon" && l.quantity === 180) { l.quantity = 250; corrections.push("Lardons : 180 g portés à 250 g pour 4 personnes."); }
+  }
   if (title !== src.nom) corrections.push(`Titre corrigé : « ${src.nom} » → « ${title} ».`);
   if (built.cookMinutes > src.temps_cuisson_min) corrections.push(`Temps de cuisson porté de ${src.temps_cuisson_min} à ${built.cookMinutes} min (somme des étapes).`);
   const cook = Math.max(src.temps_cuisson_min, built.cookMinutes);
@@ -616,10 +620,29 @@ export function importRecipes(
     else twins.set(twinKey, recipe.id);
 
     const kept = prevStatus.get(recipe.id);
-    if (kept) recipe.review.status = kept;
+    recipe.review.status = kept ?? editorialStatus(recipe);
     drafts.push(recipe);
   }
   return { drafts, rejected };
+}
+
+/**
+ * Décisions de relecture de Hugo (2026-11-17) appliquées aux nouvelles entrées :
+ * - une seule version par paire de variantes très proches (la seconde est refusée) ;
+ * - currys coco aux lardons refusés (association jugée incohérente) ;
+ * - le reste est validé et publié.
+ */
+export function editorialStatus(d: DraftRecipe): ReviewStatus {
+  if (d.review.variantOf) return "refuse";
+  if (d.review.family === "curry" && d.ingredients.some((l) => l.ingredientId === "lardon")) return "refuse";
+  return "valide";
+}
+
+/** Recettes validées, au format publié de l'appli (sans les notes de relecture). */
+export function publishedFromDrafts(drafts: readonly DraftRecipe[]): Recipe[] {
+  return drafts
+    .filter((d) => d.review.status === "valide")
+    .map(({ review: _review, ...r }) => ({ ...r, published: true }));
 }
 
 export function normTitle(t: string): string {

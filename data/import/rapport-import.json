@@ -7,11 +7,11 @@
   "doublonsDeRecettesExistantes": 3,
   "variantesTresProches": 298,
   "prochesDUneRecetteExistante": 92,
-  "avecAlerte": 263,
+  "avecAlerte": 171,
   "statuts": {
-    "brouillon": 997,
-    "valide": 0,
-    "refuse": 0
+    "brouillon": 0,
+    "valide": 679,
+    "refuse": 318
   },
   "correctionsCommunes": [
     "Étapes réécrites avec des temps précis pour chaque légume, féculent et garniture.",
