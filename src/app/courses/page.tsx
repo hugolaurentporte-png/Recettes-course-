@@ -20,6 +20,7 @@ export default function CoursesPage() {
   const [text, setText] = useState("");
   const [editing, setEditing] = useState<ShoppingItem | null>(null);
   const [browsing, setBrowsing] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { groups, checked } = useMemo(() => groupForDisplay(store.shopping), [store.shopping]);
@@ -43,9 +44,15 @@ export default function CoursesPage() {
     add(text);
   }
 
-  function onFinish() {
+  /** Récapitulatif : les articles décochés ici n'ont pas été pris et restent dans la liste. */
+  function onFinish(notBought: Set<string>) {
+    setReviewing(false);
+    for (const id of notBought) store.toggleItem(id);
     const r = store.finish();
-    if (r) toast(`Courses terminées : ${r.count} article${r.count > 1 ? "s" : ""} archivé${r.count > 1 ? "s" : ""}`, { label: "Annuler", run: r.undo });
+    if (r) toast(
+      `Courses terminées : ${r.count} article${r.count > 1 ? "s" : ""} rangé${r.count > 1 ? "s" : ""}${r.stocked > 0 ? ` (${r.stocked} nouveau${r.stocked > 1 ? "x" : ""} dans Mon frigo)` : ""}`,
+      { label: "Annuler", run: r.undo },
+    );
   }
 
   return (
@@ -110,14 +117,17 @@ export default function CoursesPage() {
               <ItemRow key={item.id} item={item} onToggle={() => store.toggleItem(item.id)} onEdit={() => setEditing(item)} />
             ))}
           </ul>
-          <button type="button" className="btn-primary mt-4 w-full" onClick={onFinish}>
+          <button type="button" className="btn-primary mt-4 w-full" onClick={() => setReviewing(true)}>
             Terminer mes courses
           </button>
-          <p className="mt-2 text-center text-xs text-stone-500">Les articles cochés sont archivés, les autres restent dans la liste.</p>
+          <p className="mt-2 text-center text-xs text-stone-500">Les articles cochés sont rangés dans « Mon frigo », les autres restent dans la liste.</p>
         </section>
       )}
 
       <EditSheet item={editing} onClose={() => setEditing(null)} />
+      <Sheet open={reviewing} onClose={() => setReviewing(false)} title="Ranger mes achats">
+        {reviewing && <FinishReview items={checked} onConfirm={onFinish} />}
+      </Sheet>
       <Sheet open={browsing} onClose={() => setBrowsing(false)} title="Rayons du supermarché">
         {browsing && <AisleBrowser />}
       </Sheet>
@@ -259,6 +269,37 @@ function AisleBrowser() {
           </div>
         </section>
       ))}
+    </div>
+  );
+}
+
+/** Avant de ranger : tout est coché, on décoche ce qui n'a finalement pas été pris. */
+function FinishReview({ items, onConfirm }: { items: ShoppingItem[]; onConfirm: (notBought: Set<string>) => void }) {
+  const [off, setOff] = useState<Set<string>>(new Set());
+  const kept = items.length - off.size;
+  return (
+    <div>
+      <p className="text-sm text-stone-600">Ces articles vont être rangés dans « Mon frigo ». Décochez ce que vous n&apos;avez pas pris : il restera dans la liste.</p>
+      <ul className="mt-3 max-h-[50vh] divide-y divide-stone-100 overflow-y-auto">
+        {items.map((it) => {
+          const on = !off.has(it.id);
+          return (
+            <li key={it.id}>
+              <button type="button" role="checkbox" aria-checked={on}
+                className="flex min-h-[52px] w-full items-center gap-3 px-1 text-left"
+                onClick={() => setOff((prev) => { const n = new Set(prev); if (n.has(it.id)) n.delete(it.id); else n.add(it.id); return n; })}>
+                <span className={`flex h-7 w-7 items-center justify-center rounded-full border-2 ${on ? "border-brand-600 bg-brand-600 text-white" : "border-stone-300"}`}>
+                  {on && <CheckIcon width={16} height={16} />}
+                </span>
+                <span className={on ? "" : "text-stone-400 line-through"}>{it.customName}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <button type="button" className="btn-primary mt-4 w-full" disabled={kept === 0} onClick={() => onConfirm(off)}>
+        Ranger {kept} article{kept > 1 ? "s" : ""}
+      </button>
     </div>
   );
 }

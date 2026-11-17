@@ -10,6 +10,7 @@ import { INGREDIENTS, getIngredient } from "./data/ingredients";
 import * as db from "./storage/db";
 import { prunePlan, servingsByRecipe, type Meal, type PlanEntry } from "./domain/plan";
 import { RECIPES_BY_ID } from "./data/recipes";
+import { stockFromPurchase } from "./domain/stock";
 
 export const ALL_EQUIPMENT: Equipment[] = ["four", "poele", "casserole", "cocotte", "airfryer", "thermomix", "sans-cuisson"];
 
@@ -55,6 +56,7 @@ function useAppState() {
     return undefined;
   }, []);
   const [storageError, setStorageError] = useState<string | null>(null);
+  const commitInventoryRef = useRef<(next: InventoryItem[]) => void>(() => {});
 
   useEffect(() => {
     let cancelled = false;
@@ -173,18 +175,25 @@ function useAppState() {
 
   const finish = useCallback(() => {
     const before = stateRef.current.shopping;
+    const inventoryBefore = stateRef.current.inventory;
+    const bought = before.filter((i) => i.checked && i.deletedAt === null);
     const r = finishShopping(before, ctx());
     if (!r.trip) return null;
     commitShopping(r.items);
     persist(db.putTrip(r.trip));
-    const archivedIds = new Set(r.trip ? before.filter((i) => i.checked && i.deletedAt === null).map((i) => i.id) : []);
+    // Ce qui a été acheté rejoint le frigo / la maison.
+    const stock = stockFromPurchase(inventoryBefore, bought, Date.now(), uuid);
+    commitInventoryRef.current(stock.inventory);
+    const archivedIds = new Set(bought.map((i) => i.id));
     return {
       count: r.trip.items.length,
+      stocked: stock.added,
       undo: () => {
         const now = Date.now();
         commitShopping(
           stateRef.current.shopping.map((i) => (archivedIds.has(i.id) ? { ...i, deletedAt: null, updatedAt: now } : i)),
         );
+        commitInventoryRef.current(inventoryBefore);
       },
     };
   }, [ctx, commitShopping, persist]);
@@ -277,6 +286,7 @@ function useAppState() {
     },
     [persist],
   );
+  commitInventoryRef.current = commitInventory;
 
   const addToInventory = useCallback(
     (ingredientId: string) =>

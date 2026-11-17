@@ -61,6 +61,9 @@ check("catégorie modifiable", await page.getByRole("heading", { name: /Autres/ 
 // 4. Terminer mes courses.
 await page.getByRole("button", { name: "Terminer mes courses" }).click();
 await page.waitForTimeout(200);
+check("récapitulatif avant de ranger", await page.getByRole("button", { name: /^Ranger \d+ article/ }).count() === 1);
+await page.getByRole("button", { name: /^Ranger \d+ article/ }).click();
+await page.waitForTimeout(200);
 check("« Terminer » archive les cochés", await page.getByRole("checkbox", { name: /Papier toilette/ }).count() === 0);
 check("« Terminer » garde les non achetés", await page.getByText("Lessive").count() === 1);
 
