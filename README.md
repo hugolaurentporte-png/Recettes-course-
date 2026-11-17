@@ -77,3 +77,13 @@ Chaque article de courses a un identifiant unique créé sur l'appareil, une lis
 - Pas de compte ni de synchronisation pour l'instant (modèle et schéma prêts).
 - Pas de conversion pièces ↔ grammes (aucune équivalence documentée saisie) : ces cas sont marqués « à vérifier ».
 - Thème clair uniquement.
+
+## Import de recettes en brouillon
+
+`npm run import:recipes` lit `data/import/recettes_1000_import.json` et écrit :
+
+- `src/lib/data/drafts/recettes-import.json` : recettes au format de l'appli, **non publiées** (`published: false`, statut de relecture « brouillon ») ;
+- `data/import/rapport-import.json` : acceptées, rejetées (doublons), variantes très proches, alertes.
+
+L'import est idempotent (mêmes fichiers à chaque lancement, statuts « valide » / « refuse » conservés).
+Les brouillons ne sont pas chargés par l'appli : la publication se fera après relecture humaine.
