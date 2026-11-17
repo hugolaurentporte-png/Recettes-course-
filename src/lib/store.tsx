@@ -11,6 +11,8 @@ import * as db from "./storage/db";
 import { prunePlan, servingsByRecipe, type Meal, type PlanEntry } from "./domain/plan";
 import { RECIPES_BY_ID } from "./data/recipes";
 import { stockFromPurchase } from "./domain/stock";
+import { isHouseholdCode, itemsToPush, mergeRemote, newHouseholdCode } from "./sync/engine";
+import { pullItems, pushItems } from "./sync/client";
 
 export const ALL_EQUIPMENT: Equipment[] = ["four", "poele", "casserole", "cocotte", "airfryer", "thermomix", "sans-cuisson"];
 
@@ -31,6 +33,15 @@ interface State {
   settings: Settings;
   plan: PlanEntry[];
   trips: ShoppingTrip[];
+  /** Code du foyer si la liste de courses est partagée. */
+  household: string | null;
+}
+
+export interface SyncStatus {
+  /** Dernière synchronisation réussie (ms). */
+  lastSync: number | null;
+  /** Dernière tentative en échec (pas de réseau, serveur indisponible). */
+  failing: boolean;
 }
 
 function uuid(): string {
@@ -46,8 +57,9 @@ function changed<T>(prev: readonly T[], next: readonly T[]): T[] {
 
 function useAppState() {
   const [state, setState] = useState<State>({
-    ready: false, shopping: [], history: [], inventory: [], settings: DEFAULT_SETTINGS, plan: [], trips: [],
+    ready: false, shopping: [], history: [], inventory: [], settings: DEFAULT_SETTINGS, plan: [], trips: [], household: null,
   });
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({ lastSync: null, failing: false });
   const stateRef = useRef(state);
   stateRef.current = state;
   const deviceId = useRef("local");
@@ -72,7 +84,9 @@ function useAppState() {
         }
         deviceId.current = id;
         await db.purgeTombstones(Date.now());
-        const [data, settings, plan] = await Promise.all([db.loadAll(), db.getMeta<Settings>("settings"), db.getMeta<PlanEntry[]>("plan")]);
+        const [data, settings, plan, household] = await Promise.all([
+          db.loadAll(), db.getMeta<Settings>("settings"), db.getMeta<PlanEntry[]>("plan"), db.getMeta<string>("household"),
+        ]);
         if (cancelled) return;
         const loaded: State = {
           ready: true,
@@ -82,6 +96,7 @@ function useAppState() {
           settings: { ...DEFAULT_SETTINGS, ...settings },
           plan: prunePlan(plan ?? [], new Date()),
           trips: data.trips,
+          household: isHouseholdCode(household) ? household : null,
         };
         stateRef.current = loaded;
         setState(loaded);
@@ -135,9 +150,105 @@ function useAppState() {
       setState(updated);
       persist(db.putShopping(toSave));
       persist(db.putHistory(histToSave));
+      if (toSave.length) scheduleSyncRef.current();
     },
     [persist],
   );
+
+  // ---------- Liste partagée ----------
+  const scheduleSyncRef = useRef<() => void>(() => {});
+  const syncing = useRef<Promise<void> | null>(null);
+  const syncAgain = useRef(false);
+
+  const runSync = useCallback(async () => {
+    const code = stateRef.current.household;
+    if (!code) return;
+    try {
+      const pushedUpTo = (await db.getMeta<number>("syncPushedUpTo")) ?? 0;
+      const toPush = itemsToPush(stateRef.current.shopping, pushedUpTo);
+      if (toPush.length) {
+        await pushItems(code, toPush);
+        await db.setMeta("syncPushedUpTo", Math.max(pushedUpTo, ...toPush.map((i) => i.updatedAt)));
+      }
+      const since = (await db.getMeta<number>("syncSeq")) ?? 0;
+      const pulled = await pullItems(code, since);
+      if (stateRef.current.household !== code) return;
+      const merged = mergeRemote(stateRef.current.shopping, pulled.items);
+      if (merged) {
+        const updated = { ...stateRef.current, shopping: merged.items };
+        stateRef.current = updated;
+        setState(updated);
+        await db.putShopping(merged.changed);
+      }
+      if (pulled.seq !== since) await db.setMeta("syncSeq", pulled.seq);
+      setSyncStatus({ lastSync: Date.now(), failing: false });
+    } catch (e) {
+      console.warn("Synchronisation impossible", e);
+      setSyncStatus((s) => ({ ...s, failing: true }));
+    }
+  }, []);
+
+  /** Lance une synchronisation (une seule à la fois ; une demande pendant l'envoi relance juste après). */
+  const syncNow = useCallback((): Promise<void> => {
+    if (syncing.current) {
+      syncAgain.current = true;
+      return syncing.current;
+    }
+    syncing.current = (async () => {
+      do {
+        syncAgain.current = false;
+        await runSync();
+      } while (syncAgain.current);
+      syncing.current = null;
+    })();
+    return syncing.current;
+  }, [runSync]);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    scheduleSyncRef.current = () => {
+      if (!stateRef.current.household) return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => void syncNow(), 600);
+    };
+    return () => { if (timer) clearTimeout(timer); };
+  }, [syncNow]);
+
+  // Synchronise à l'ouverture, au retour sur l'appli, au retour du réseau, et toutes les 5 s (appli ouverte).
+  useEffect(() => {
+    if (!state.ready || !state.household) return;
+    void syncNow();
+    const tick = () => { if (document.visibilityState === "visible") void syncNow(); };
+    const id = setInterval(tick, 5000);
+    document.addEventListener("visibilitychange", tick);
+    window.addEventListener("online", tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+      window.removeEventListener("online", tick);
+    };
+  }, [state.ready, state.household, syncNow]);
+
+  /** Rejoint (code donné) ou crée (sans code) une liste partagée ; la liste actuelle y est ajoutée. */
+  const startSharing = useCallback(async (joinCode?: string) => {
+    const code = joinCode ?? newHouseholdCode((n) => crypto.getRandomValues(new Uint8Array(n)));
+    if (!isHouseholdCode(code)) throw new Error("Code de partage invalide");
+    await Promise.all([db.setMeta("household", code), db.setMeta("syncSeq", 0), db.setMeta("syncPushedUpTo", 0)]);
+    const updated = { ...stateRef.current, household: code };
+    stateRef.current = updated;
+    setState(updated);
+    await syncNow();
+    return code;
+  }, [syncNow]);
+
+  /** Arrête le partage sur ce téléphone (la liste reste telle quelle). */
+  const stopSharing = useCallback(async () => {
+    await db.setMeta("household", null);
+    const updated = { ...stateRef.current, household: null };
+    stateRef.current = updated;
+    setState(updated);
+    setSyncStatus({ lastSync: null, failing: false });
+  }, []);
 
   // ---------- Courses ----------
   const addItem = useCallback(
@@ -376,6 +487,7 @@ function useAppState() {
     planRecipe, updatePlanEntry, removePlanEntry, addPlanToShopping,
     addToInventory, removeFromInventory, updateInventory,
     updateSettings,
+    syncStatus, syncNow, startSharing, stopSharing,
   };
 }
 
