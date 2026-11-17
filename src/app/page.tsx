@@ -8,6 +8,7 @@ import { useRanking } from "@/lib/useRanking";
 import { EMPTY_FILTERS } from "@/lib/domain/recommend";
 import { RecipeCard } from "@/components/RecipeCard";
 import { Onboarding } from "@/components/Onboarding";
+import { PlannedMeals } from "@/components/PlannedMeals";
 import { CartIcon, SearchIcon } from "@/components/Icons";
 import type { ScoredRecipe } from "@/lib/domain/recommend";
 import { searchIngredients, searchRecipeTitles } from "@/lib/domain/search";
@@ -102,6 +103,8 @@ export default function HomePage() {
           </ul>
         )}
       </form>
+
+      <PlannedMeals />
 
       <div className="no-scrollbar -mx-4 mt-3 flex gap-2 overflow-x-auto px-4">
         {QUICK.map((f) => <Link key={f.href} href={f.href} className="chip">{f.label}</Link>)}

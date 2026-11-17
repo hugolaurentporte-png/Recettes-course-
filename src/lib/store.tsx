@@ -8,11 +8,11 @@ import {
 } from "./domain/shopping";
 import { INGREDIENTS, getIngredient } from "./data/ingredients";
 import * as db from "./storage/db";
-import { prunePlan, servingsByRecipe, type Meal, type PlanEntry } from "./domain/plan";
+import { activePlan, normalizePlan, patchSlot, prunePlan, servingsByRecipe, setSlot, type Meal, type PlanEntry } from "./domain/plan";
 import { RECIPES_BY_ID } from "./data/recipes";
 import { stockFromPurchase } from "./domain/stock";
-import { isHouseholdCode, itemsToPush, mergeRemote, newHouseholdCode } from "./sync/engine";
-import { pullItems, pushItems } from "./sync/client";
+import { collapseRecipeDuplicates, docsToPush, isHouseholdCode, itemsToPush, mergeDocs, mergeRemote, newHouseholdCode } from "./sync/engine";
+import { pullDocs, pullItems, pushDocs, pushItems } from "./sync/client";
 
 export const ALL_EQUIPMENT: Equipment[] = ["four", "poele", "casserole", "cocotte", "airfryer", "thermomix", "sans-cuisson"];
 
@@ -42,6 +42,8 @@ export interface SyncStatus {
   lastSync: number | null;
   /** Dernière tentative en échec (pas de réseau, serveur indisponible). */
   failing: boolean;
+  /** Le planning n'a pas pu être partagé (supabase/foyer.sql pas encore installé, ou pas de réseau). */
+  planFailing?: boolean;
 }
 
 function uuid(): string {
@@ -94,7 +96,7 @@ function useAppState() {
           history: data.history,
           inventory: data.inventory,
           settings: { ...DEFAULT_SETTINGS, ...settings },
-          plan: prunePlan(plan ?? [], new Date()),
+          plan: prunePlan(normalizePlan(plan ?? []), new Date()),
           trips: data.trips,
           household: isHouseholdCode(household) ? household : null,
         };
@@ -181,10 +183,44 @@ function useAppState() {
         await db.putShopping(merged.changed);
       }
       if (pulled.seq !== since) await db.setMeta("syncSeq", pulled.seq);
-      setSyncStatus({ lastSync: Date.now(), failing: false });
+      // Les deux ont ajouté la même recette en même temps : une seule ligne par ingrédient.
+      const dups = collapseRecipeDuplicates(stateRef.current.shopping, Date.now(), deviceId.current);
+      if (dups.length) {
+        const ids = new Map(dups.map((d) => [d.id, d]));
+        const updated = { ...stateRef.current, shopping: stateRef.current.shopping.map((i) => ids.get(i.id) ?? i) };
+        stateRef.current = updated;
+        setState(updated);
+        await db.putShopping(dups);
+        await pushItems(code, dups);
+      }
+      setSyncStatus((s) => ({ ...s, lastSync: Date.now(), failing: false }));
     } catch (e) {
       console.warn("Synchronisation impossible", e);
       setSyncStatus((s) => ({ ...s, failing: true }));
+    }
+    // Planning du foyer (table séparée : s'il n'est pas encore installé, la liste marche quand même).
+    try {
+      const pushedUpTo = (await db.getMeta<number>("planPushedUpTo")) ?? 0;
+      const toPush = docsToPush(stateRef.current.plan, pushedUpTo);
+      if (toPush.length) {
+        await pushDocs(code, "planning", toPush);
+        await db.setMeta("planPushedUpTo", Math.max(pushedUpTo, ...toPush.map((e) => e.updatedAt ?? 0)));
+      }
+      const since = (await db.getMeta<number>("planSeq")) ?? 0;
+      const pulled = await pullDocs<PlanEntry>(code, "planning", since);
+      if (stateRef.current.household !== code) return;
+      const merged = mergeDocs(stateRef.current.plan, pulled.docs);
+      if (merged) {
+        const updated = { ...stateRef.current, plan: merged };
+        stateRef.current = updated;
+        setState(updated);
+        await db.setMeta("plan", merged);
+      }
+      if (pulled.seq !== since) await db.setMeta("planSeq", pulled.seq);
+      setSyncStatus((s) => (s.planFailing ? { ...s, planFailing: false } : s));
+    } catch (e) {
+      console.warn("Planning partagé indisponible", e);
+      setSyncStatus((s) => ({ ...s, planFailing: true }));
     }
   }, []);
 
@@ -233,7 +269,10 @@ function useAppState() {
   const startSharing = useCallback(async (joinCode?: string) => {
     const code = joinCode ?? newHouseholdCode((n) => crypto.getRandomValues(new Uint8Array(n)));
     if (!isHouseholdCode(code)) throw new Error("Code de partage invalide");
-    await Promise.all([db.setMeta("household", code), db.setMeta("syncSeq", 0), db.setMeta("syncPushedUpTo", 0)]);
+    await Promise.all([
+      db.setMeta("household", code), db.setMeta("syncSeq", 0), db.setMeta("syncPushedUpTo", 0),
+      db.setMeta("planSeq", 0), db.setMeta("planPushedUpTo", 0),
+    ]);
     const updated = { ...stateRef.current, household: code };
     stateRef.current = updated;
     setState(updated);
@@ -384,28 +423,44 @@ function useAppState() {
       stateRef.current = updated;
       setState(updated);
       persist(db.setMeta("plan", plan));
+      scheduleSyncRef.current();
     },
     [persist],
   );
 
+  /** Prévoit un plat (remplace celui du créneau s'il y en a un : la confirmation se fait avant). */
   const planRecipe = useCallback(
     (recipeId: string, date: string, meal: Meal, servings: number) =>
       void whenReady(() => {
-        const others = stateRef.current.plan.filter((e) => !(e.date === date && e.meal === meal));
-        commitPlan([...others, { id: uuid(), date, meal, recipeId, servings }]);
+        commitPlan(setSlot(stateRef.current.plan, { date, meal, recipeId, servings }, Date.now(), deviceId.current));
       }),
     [commitPlan, whenReady],
   );
 
   const updatePlanEntry = useCallback(
     (id: string, patch: Partial<Pick<PlanEntry, "servings">>) =>
-      commitPlan(stateRef.current.plan.map((e) => (e.id === id ? { ...e, ...patch } : e))),
+      commitPlan(patchSlot(stateRef.current.plan, id, patch, Date.now(), deviceId.current)),
     [commitPlan],
   );
 
+  /** Retire le plat du planning (sur les deux téléphones si le foyer est partagé). */
   const removePlanEntry = useCallback(
-    (id: string) => commitPlan(stateRef.current.plan.filter((e) => e.id !== id)),
+    (id: string) => commitPlan(patchSlot(stateRef.current.plan, id, { deletedAt: Date.now() }, Date.now(), deviceId.current)),
     [commitPlan],
+  );
+
+  /**
+   * « Ajouter ce qui manque » depuis un plat prévu : on récupère d'abord ce que l'autre a peut-être
+   * déjà ajouté, pour compléter sa ligne au lieu d'en créer une seconde.
+   */
+  const addPlannedToShopping = useCallback(
+    async (entry: PlanEntry): Promise<RecipeAddSummary | null> => {
+      const recipe = RECIPES_BY_ID.get(entry.recipeId);
+      if (!recipe) return null;
+      if (stateRef.current.household) await Promise.race([syncNow(), new Promise((r) => setTimeout(r, 2500))]);
+      return addRecipe(recipe, entry.servings);
+    },
+    [addRecipe, syncNow],
   );
 
   /** Met dans les courses ce qui manque pour les repas prévus sur ces jours. */
@@ -476,15 +531,17 @@ function useAppState() {
     [persist],
   );
 
+  const plan = useMemo(() => activePlan(state.plan), [state.plan]);
   const inventoryMap = useMemo(() => new Map(state.inventory.map((i) => [i.ingredientId, i])), [state.inventory]);
 
   return {
     ...state,
+    plan,
     inventoryMap,
     storageError,
     dismissStorageError: () => setStorageError(null),
     addItem, toggleItem, updateItem, removeItem, finish, addRecipe, addRecipes, addExpense, addReceipt, removeTrip,
-    planRecipe, updatePlanEntry, removePlanEntry, addPlanToShopping,
+    planRecipe, updatePlanEntry, removePlanEntry, addPlanToShopping, addPlannedToShopping,
     addToInventory, removeFromInventory, updateInventory,
     updateSettings,
     syncStatus, syncNow, startSharing, stopSharing,
