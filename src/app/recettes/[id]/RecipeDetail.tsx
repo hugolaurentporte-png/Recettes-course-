@@ -15,6 +15,7 @@ import { useToast } from "@/components/Toast";
 import { Visual } from "@/components/RecipeCard";
 import { BackIcon, CalendarIcon, CartIcon, MinusIcon, PlusIcon } from "@/components/Icons";
 import { Sheet } from "@/components/Sheet";
+import { CarnetBlock } from "@/components/CarnetBlock";
 import { MEALS, MEAL_LABELS, dayLabel, nextDay, plannedAt, toDateKey, weekDays, type Meal } from "@/lib/domain/plan";
 
 const STATUS_STYLE: Record<LineStatus, { icon: string; cls: string; label: string }> = {
@@ -101,6 +102,8 @@ export function RecipeDetail({ id }: { id: string }) {
           <div className="p-3"><dt className="text-xs text-stone-500">Cuisson</dt><dd className="font-semibold">{recipe.cookMinutes ? formatMinutes(recipe.cookMinutes) : "—"}</dd></div>
           <div className="p-3"><dt className="text-xs text-stone-500">Total</dt><dd className="font-semibold">{formatMinutes(recipe.totalMinutes)}</dd></div>
         </dl>
+
+        <CarnetBlock recipeId={recipe.id} />
 
         <div className="mt-6 flex items-center justify-between">
           <h2 className="text-lg font-bold">Ingrédients</h2>

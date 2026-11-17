@@ -52,6 +52,7 @@ export default function HomePage() {
   const withWhatIHave = hasStock ? (ready.length > 0 ? ready : ranked.filter((s) => s.availability.missingCount <= 1)) : [];
   const priority = ranked.filter((s) => s.priorityUsed.length > 0);
   const seasonal = [...ranked].filter((s) => s.inSeason).sort((a, b) => b.score - a.score);
+  const favorites = store.carnet.filter((e) => e.verdict === "favori").length;
   const toBuy = store.shopping.filter((i) => i.deletedAt === null && !i.checked).length;
 
   function search(e: FormEvent) {
@@ -118,6 +119,12 @@ export default function HomePage() {
         <CartIcon className="text-brand-700" />
         <span className="flex-1 font-medium">Ma liste de courses</span>
         <span className="text-sm text-stone-500">{toBuy === 0 ? "vide" : `${toBuy} article${toBuy > 1 ? "s" : ""}`}</span>
+      </Link>
+
+      <Link href="/carnet/" className="card mt-3 flex items-center gap-3 p-4">
+        <span className="text-xl" aria-hidden="true">📒</span>
+        <span className="flex-1 font-medium">{store.household ? "Notre carnet de recettes" : "Mon carnet de recettes"}</span>
+        <span className="text-sm text-stone-500">{favorites === 0 ? "favorites, à refaire" : `❤️ ${favorites}`}</span>
       </Link>
 
       {!hasStock && store.ready && (

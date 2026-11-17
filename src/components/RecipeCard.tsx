@@ -7,6 +7,7 @@ import { EQUIPMENT_LABELS, formatMinutes } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import { useToast } from "./Toast";
 import { CartIcon } from "./Icons";
+import { CarnetBadge } from "./CarnetBlock";
 
 const GRADIENTS = [
   "from-amber-100 to-orange-200",
@@ -71,7 +72,9 @@ export function RecipeCard({ s, compact = false }: { s: ScoredRecipe; compact?: 
       <Link href={`/recettes/${r.id}/`} className="card block w-44 shrink-0 overflow-hidden">
         <Visual id={r.id} emoji={r.emoji} className="h-24 text-5xl" />
         <div className="p-3">
-          <p className="line-clamp-2 text-sm font-semibold leading-tight">{r.title}</p>
+          <p className="line-clamp-2 text-sm font-semibold leading-tight">
+            {store.carnetMap.get(r.id)?.verdict === "favori" && <span aria-label="Favorite">❤️ </span>}{r.title}
+          </p>
           <p className="mt-1 text-xs text-stone-500">{formatMinutes(r.totalMinutes)}</p>
           <p className={`mt-1 text-xs font-semibold ${s.availability.allAvailable ? "text-brand-700" : "text-warm-600"}`}>
             {s.availability.allAvailable ? "✓ Tout est là" : `Il manque ${s.availability.missingCount}`}
@@ -91,6 +94,7 @@ export function RecipeCard({ s, compact = false }: { s: ScoredRecipe; compact?: 
             {formatMinutes(r.totalMinutes)} | {modes.map((m) => EQUIPMENT_LABELS[m]).join(", ")} | {r.servings} pers.
           </p>
           <div className="mt-1 flex flex-wrap gap-1">
+            <CarnetBadge entry={store.carnetMap.get(r.id)} />
             {s.inSeason && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">🌱 De saison</span>}
             {priorityNames.length > 0 && (
               <span className="rounded-full bg-warm-50 px-2 py-0.5 text-xs font-medium text-warm-600">⚡ {priorityNames.join(", ")}</span>

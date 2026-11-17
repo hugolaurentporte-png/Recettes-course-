@@ -8,6 +8,8 @@ import { EQUIPMENT_LABELS } from "@/lib/labels";
 import { useRanking } from "@/lib/useRanking";
 import { RecipeCard } from "@/components/RecipeCard";
 import { SearchIcon } from "@/components/Icons";
+import Link from "next/link";
+import { useStore } from "@/lib/store";
 
 const TIMES: { v: TimeFilter; label: string }[] = [
   { v: 15, label: "< 15 min" },
@@ -34,6 +36,8 @@ function RecipesInner() {
   }, [params]);
 
   const results = useRanking({ query, maxMinutes, modes, onlyReady });
+  const { carnet } = useStore();
+  const favorites = carnet.filter((e) => e.verdict === "favori").length;
   const hasFilters = query !== "" || maxMinutes !== null || modes.length > 0 || onlyReady;
 
   function reset() {
@@ -46,7 +50,12 @@ function RecipesInner() {
   return (
     <div className="px-4">
       <header className="sticky top-0 z-20 -mx-4 bg-[#f7f7f5]/95 px-4 pb-3 pt-4 backdrop-blur">
-        <h1 className="mb-3 text-2xl font-bold">Recettes</h1>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h1 className="text-2xl font-bold">Recettes</h1>
+          <Link href="/carnet/" className="btn-secondary min-h-[40px] px-3 text-sm">
+            📒 Carnet{favorites > 0 ? ` · ❤️ ${favorites}` : ""}
+          </Link>
+        </div>
         <div className="relative">
           <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" width={20} height={20} />
           <input type="search" className="input pl-11" value={query} onChange={(e) => setQuery(e.target.value)}

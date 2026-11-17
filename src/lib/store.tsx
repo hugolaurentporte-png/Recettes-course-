@@ -16,10 +16,13 @@ import { pullItems, pushItems } from "./sync/client";
 import {
   enterHousehold, isMemberKey, leaveHousehold, listMembers, newMemberKey, pullDocs, pushDocs, type HouseholdMember,
 } from "./sync/docs";
+import { activeCarnet, dislikedIds, normalizeCarnet, patchEntry, type CarnetEntry, type CarnetPatch } from "./domain/carnet";
 import { FRIDGE_KIND, applyRemote, firstMerge, localChanges, type StockDoc } from "./sync/fridge";
 
 /** Planning des repas du foyer (table foyer_docs). */
 const PLAN_KIND = "planning";
+/** Carnet de recettes du foyer (favorites, « pas pour nous », à refaire, notes). */
+const CARNET_KIND = "carnet";
 
 export const ALL_EQUIPMENT: Equipment[] = ["four", "poele", "casserole", "cocotte", "airfryer", "thermomix", "sans-cuisson"];
 
@@ -39,6 +42,7 @@ interface State {
   inventory: InventoryItem[];
   settings: Settings;
   plan: PlanEntry[];
+  carnet: CarnetEntry[];
   trips: ShoppingTrip[];
   /** Code du foyer si la liste de courses est partagée. */
   household: string | null;
@@ -75,7 +79,7 @@ function withoutCheck(item: InventoryItem, patch: object): InventoryItem {
 
 function useAppState() {
   const [state, setState] = useState<State>({
-    ready: false, shopping: [], history: [], inventory: [], settings: DEFAULT_SETTINGS, plan: [], trips: [], household: null, fridgeShared: false,
+    ready: false, shopping: [], history: [], inventory: [], settings: DEFAULT_SETTINGS, plan: [], carnet: [], trips: [], household: null, fridgeShared: false,
   });
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ lastSync: null, failing: false });
   const stateRef = useRef(state);
@@ -102,9 +106,9 @@ function useAppState() {
         }
         deviceId.current = id;
         await db.purgeTombstones(Date.now());
-        const [data, settings, plan, household, fridgeShared, outbox] = await Promise.all([
+        const [data, settings, plan, household, fridgeShared, outbox, carnet] = await Promise.all([
           db.loadAll(), db.getMeta<Settings>("settings"), db.getMeta<PlanEntry[]>("plan"), db.getMeta<string>("household"),
-          db.getMeta<boolean>("fridgeShared"), db.getMeta<StockDoc[]>("fridgeOutbox"),
+          db.getMeta<boolean>("fridgeShared"), db.getMeta<StockDoc[]>("fridgeOutbox"), db.getMeta<CarnetEntry[]>("carnet"),
         ]);
         fridgeOutbox.current = new Map((outbox ?? []).map((d) => [d.id, d]));
         if (cancelled) return;
@@ -115,6 +119,7 @@ function useAppState() {
           inventory: data.inventory,
           settings: { ...DEFAULT_SETTINGS, ...settings },
           plan: prunePlan(normalizePlan(plan ?? []), new Date()),
+          carnet: normalizeCarnet(carnet),
           trips: data.trips,
           household: isHouseholdCode(household) ? household : null,
           fridgeShared: isHouseholdCode(household) && fridgeShared === true,
@@ -302,6 +307,30 @@ function useAppState() {
       console.warn("Planning partagé indisponible", e);
       setSyncStatus((s) => ({ ...s, planFailing: true }));
     }
+    // Carnet de recettes du foyer (même table que le planning).
+    try {
+      const key = await ensureMember(code);
+      if (stateRef.current.household !== code) return;
+      const pushedUpTo = (await db.getMeta<number>("carnetPushedUpTo")) ?? 0;
+      const toPush = docsToPush(stateRef.current.carnet, pushedUpTo);
+      if (toPush.length) {
+        await pushDocs(key, CARNET_KIND, toPush);
+        await db.setMeta("carnetPushedUpTo", Math.max(pushedUpTo, ...toPush.map((e) => e.updatedAt)));
+      }
+      const since = (await db.getMeta<number>("carnetSeq")) ?? 0;
+      const pulled = await pullDocs<CarnetEntry>(key, CARNET_KIND, since);
+      if (stateRef.current.household !== code) return;
+      const merged = mergeDocs(stateRef.current.carnet, normalizeCarnet(pulled.docs));
+      if (merged) {
+        const updated = { ...stateRef.current, carnet: merged };
+        stateRef.current = updated;
+        setState(updated);
+        await db.setMeta("carnet", merged);
+      }
+      if (pulled.seq !== since) await db.setMeta("carnetSeq", pulled.seq);
+    } catch (e) {
+      console.warn("Carnet partagé indisponible", e);
+    }
   }, [runFridgeSync, ensureMember]);
 
   /** Lance une synchronisation (une seule à la fois ; une demande pendant l'envoi relance juste après). */
@@ -363,6 +392,7 @@ function useAppState() {
         db.setMeta("household", code), db.setMeta("syncSeq", 0), db.setMeta("syncPushedUpTo", 0),
         db.setMeta("fridgeSeq", 0), db.setMeta("fridgeMergedWith", null), db.setMeta("fridgeOutbox", []),
         db.setMeta("planSeq", 0), db.setMeta("planPushedUpTo", 0),
+        db.setMeta("carnetSeq", 0), db.setMeta("carnetPushedUpTo", 0),
       ]);
       fridgeOutbox.current = new Map();
     }
@@ -589,6 +619,21 @@ function useAppState() {
     [addRecipes],
   );
 
+  // ---------- Carnet de recettes ----------
+  /** Favorite, « pas pour nous », à refaire, note perso (partagé avec le foyer). */
+  const updateCarnet = useCallback(
+    (recipeId: string, patch: CarnetPatch) =>
+      void whenReady(() => {
+        const carnet = patchEntry(stateRef.current.carnet, recipeId, patch, Date.now(), deviceId.current);
+        const updated = { ...stateRef.current, carnet };
+        stateRef.current = updated;
+        setState(updated);
+        persist(db.setMeta("carnet", carnet));
+        scheduleSyncRef.current();
+      }),
+    [persist, whenReady],
+  );
+
   // ---------- Frigo ----------
   /**
    * Toute modification du frigo passe ici (ajout, quantité, « Terminer mes courses », « J'ai cuisiné »…).
@@ -684,11 +729,15 @@ function useAppState() {
   );
 
   const plan = useMemo(() => activePlan(state.plan), [state.plan]);
+  const carnet = useMemo(() => activeCarnet(state.carnet), [state.carnet]);
+  const carnetMap = useMemo(() => new Map(carnet.map((e) => [e.id, e])), [carnet]);
+  const disliked = useMemo(() => dislikedIds(carnet), [carnet]);
   const inventoryMap = useMemo(() => new Map(state.inventory.map((i) => [i.ingredientId, i])), [state.inventory]);
 
   return {
     ...state,
     plan,
+    carnet, carnetMap, disliked, updateCarnet,
     inventoryMap,
     storageError,
     dismissStorageError: () => setStorageError(null),

@@ -23,7 +23,7 @@ export function BottomNav() {
       className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-white/95 backdrop-blur">
       <ul className="mx-auto grid max-w-xl grid-cols-5">
         {TABS.map(({ href, label, Icon }) => {
-          const active = href === "/" ? path === "/" : path.startsWith(href.replace(/\/$/, ""));
+          const active = href === "/" ? path === "/" : path.startsWith(href.replace(/\/$/, "")) || (href === "/recettes/" && path.startsWith("/carnet"));
           return (
             <li key={href}>
               <Link href={href} aria-current={active ? "page" : undefined}
