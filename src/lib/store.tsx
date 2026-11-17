@@ -10,7 +10,7 @@ import { INGREDIENTS, getIngredient } from "./data/ingredients";
 import * as db from "./storage/db";
 import { prunePlan, servingsByRecipe, type Meal, type PlanEntry } from "./domain/plan";
 import { RECIPES_BY_ID } from "./data/recipes";
-import { stockFromPurchase } from "./domain/stock";
+import { consumeRecipe, restoreStock, stockFromPurchase } from "./domain/stock";
 import { isHouseholdCode, itemsToPush, mergeRemote, newHouseholdCode } from "./sync/engine";
 import { pullItems, pushItems } from "./sync/client";
 
@@ -463,6 +463,28 @@ function useAppState() {
     [commitInventory],
   );
 
+  /**
+   * « J'ai cuisiné » : retire les produits terminés et déduit (estimation) le reste.
+   * Renvoie le bilan et une fonction d'annulation (sans effet si elle est appelée deux fois).
+   */
+  const cookRecipe = useCallback(
+    (recipe: Recipe, servings: number, finished: ReadonlySet<string>) => {
+      const r = consumeRecipe(stateRef.current.inventory, recipe, servings, finished, getIngredient, Date.now());
+      commitInventory(r.inventory);
+      let undone = false;
+      return {
+        removed: r.removed,
+        updated: r.updated,
+        undo: () => {
+          if (undone) return;
+          undone = true;
+          commitInventory(restoreStock(stateRef.current.inventory, r.previous));
+        },
+      };
+    },
+    [commitInventory],
+  );
+
   // ---------- Réglages ----------
   const updateSettings = useCallback(
     (patch: Partial<Settings>) => {
@@ -485,7 +507,7 @@ function useAppState() {
     dismissStorageError: () => setStorageError(null),
     addItem, toggleItem, updateItem, removeItem, finish, addRecipe, addRecipes, addExpense, addReceipt, removeTrip,
     planRecipe, updatePlanEntry, removePlanEntry, addPlanToShopping,
-    addToInventory, removeFromInventory, updateInventory,
+    addToInventory, removeFromInventory, updateInventory, cookRecipe,
     updateSettings,
     syncStatus, syncNow, startSharing, stopSharing,
   };
