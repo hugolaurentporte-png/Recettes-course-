@@ -72,7 +72,8 @@ async function stockFrigo(page, items) {
     await page.getByLabel("Ajouter un ingrédient").fill(name);
     await page.keyboard.press("Enter");
     if (qty === undefined) continue;
-    await page.getByRole("button", { name: new RegExp(`^${unit.label}`) }).first().click();
+    await page.waitForTimeout(150);
+    await page.getByRole("button", { name: new RegExp(`^${unit.label}\\s*Quantité`) }).first().click(); // ligne du frigo, pas la catégorie
     await page.getByLabel("Quantité").fill(String(qty));
     await page.getByLabel("Unité").selectOption(unit.value);
     await page.getByRole("button", { name: "Enregistrer" }).click();
@@ -179,6 +180,27 @@ async function cremeRows(page) {
   await a.getByRole("button", { name: "Prévoir ce plat à deux" }).click();
   await a.getByRole("button", { name: /^Demain/ }).click();
   check("B : plat prévu demain soir", await visible(b.getByRole("article", { name: /Demain soir : Gratin de pommes de terre/ }), 20000));
+
+  // 4 ter. « Ajouter au planning » demande aussi avant de remplacer.
+  await b.goto(`${BASE}/recettes/gratin-courgettes/`);
+  await b.getByRole("button", { name: "Ajouter au planning" }).click();
+  const tomorrowSoir = b.getByRole("button", { name: /, Soir \(déjà prévu : Gratin de pommes de terre/ });
+  await tomorrowSoir.click();
+  check("« Ajouter au planning » : le plat prévu n'est pas remplacé d'office", await visible(b.getByText("Remplacer le plat prévu ?")));
+  await b.getByRole("button", { name: /^Garder/ }).click();
+  await tomorrowSoir.click();
+  await b.getByRole("button", { name: /^Remplacer par Gratin de courgettes/ }).click();
+  await b.waitForTimeout(1000); // laisse l'enregistrement se faire avant de recharger la page
+  await b.goto(`${BASE}/`);
+  check("« Ajouter au planning » : remplacement après confirmation", await visible(b.getByRole("article", { name: /Demain soir : Gratin de courgettes/ })));
+  // On remet le gratin de pommes de terre demain soir, toujours avec confirmation.
+  await b.goto(`${BASE}/recettes/gratin-pdt-carottes/`);
+  await b.getByRole("button", { name: "Ajouter au planning" }).click();
+  await b.getByRole("button", { name: /, Soir \(déjà prévu : Gratin de courgettes/ }).last().click();
+  await b.getByRole("button", { name: /^Remplacer par Gratin de pommes de terre/ }).click();
+  await b.waitForTimeout(1000);
+  await b.goto(`${BASE}/`);
+  await visible(b.getByRole("article", { name: /Demain soir : Gratin de pommes de terre/ }));
 
   // 5. B retire le plat de ce soir : il disparaît aussi chez A.
   await b.getByRole("button", { name: "Retirer Gratin de courgettes du planning" }).click();
