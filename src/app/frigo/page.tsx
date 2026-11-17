@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
 import { ALL_EQUIPMENT, useStore } from "@/lib/store";
 import { CATEGORY_ICONS, CATEGORY_LABELS, CATEGORY_ORDER, COMMON_INGREDIENT_IDS, INGREDIENTS, getIngredient } from "@/lib/data/ingredients";
@@ -53,7 +54,13 @@ export default function FrigoPage() {
   return (
     <div className="px-4">
       <header className="sticky top-0 z-20 -mx-4 bg-[#f7f7f5]/95 px-4 pb-3 pt-4 backdrop-blur">
-        <h1 className="mb-3 text-2xl font-bold">Mon frigo</h1>
+        <div className="mb-3 flex items-baseline justify-between">
+          <h1 className="text-2xl font-bold">Mon frigo</h1>
+          <Link href="/partage/" className="text-sm font-semibold text-brand-700"
+            aria-label={store.fridgeShared ? "Frigo partagé" : "Partager le frigo"}>
+            {store.fridgeShared ? (store.syncStatus.failing ? "👥 Hors ligne" : "👥 Partagé") : "👥 Partager"}
+          </Link>
+        </div>
         <form onSubmit={onSubmit} className="relative">
           <label htmlFor="ing-search" className="sr-only">Ajouter un ingrédient</label>
           <div className="flex gap-2">
@@ -82,6 +89,31 @@ export default function FrigoPage() {
           )}
         </form>
       </header>
+
+      {store.household && !store.fridgeShared && (
+        <div className="card mt-2 space-y-3 p-4">
+          <p className="text-sm">
+            <span className="font-semibold">Votre liste de courses est déjà partagée.</span>{" "}
+            Partager aussi le frigo avec le même foyer ? Vos produits sont conservés et ajoutés à ceux de l&apos;autre téléphone.
+          </p>
+          <button type="button" className="btn-primary w-full"
+            onClick={() => void store.shareFridge().then(() => toast("Frigo partagé avec le foyer"), () => toast("Ça n'a pas marché. Vérifiez la connexion internet."))}>
+            Partager le frigo
+          </button>
+        </div>
+      )}
+
+      {store.fridgeConflicts > 0 && (
+        <div className="card mt-2 flex items-start gap-3 border-warm-100 p-4" role="status">
+          <p className="flex-1 text-sm">
+            ⚠️ Frigos fusionnés. {store.fridgeConflicts} produit{store.fridgeConflicts > 1 ? "s ont" : " a"} une quantité différente
+            sur les deux téléphones : touchez « Quantité à vérifier » pour choisir la bonne.
+          </p>
+          <button type="button" onClick={store.dismissFridgeConflicts} aria-label="Fermer" className="text-stone-400">
+            <XIcon width={20} height={20} />
+          </button>
+        </div>
+      )}
 
       <h2 className="section-title">Parcourir par catégorie</h2>
       <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
@@ -138,8 +170,8 @@ export default function FrigoPage() {
         </section>
       ))}
 
-      <CustomStock title="🥫 Placards (autres produits)" items={pantry} />
-      <CustomStock title="🏠 À la maison" items={home} />
+      <CustomStock title="🥫 Placards (autres produits)" items={pantry} onEdit={setEditing} />
+      <CustomStock title="🏠 À la maison" items={home} onEdit={setEditing} />
 
       <section>
         <h2 className="section-title">Mes indispensables</h2>
@@ -179,7 +211,7 @@ export default function FrigoPage() {
         {browsing && <CategoryList category={browsing} onAdd={(ing) => { store.addToInventory(ing.id); toast(`${ing.name} ajouté au frigo`); }} />}
       </Sheet>
 
-      <Sheet open={editing !== null} onClose={() => setEditing(null)} title={getIngredient(editing?.ingredientId ?? "")?.name ?? ""}>
+      <Sheet open={editing !== null} onClose={() => setEditing(null)} title={getIngredient(editing?.ingredientId ?? "")?.name ?? editing?.customName ?? ""}>
         {editing && <QuantityForm key={editing.id} item={editing} onClose={() => setEditing(null)} />}
       </Sheet>
     </div>
@@ -232,9 +264,13 @@ function InventoryRow({ item, onEdit }: { item: InventoryItem; onEdit: () => voi
     <li className="flex min-h-[56px] items-center gap-1 pl-4">
       <button type="button" onClick={onEdit} className="flex min-h-[56px] flex-1 flex-col justify-center text-left">
         <span className="font-medium">{ing.name}</span>
-        <span className="text-xs text-stone-500">
-          {item.quantity !== null && item.unit ? formatAmount({ value: item.quantity, unit: item.unit }) : "Quantité non précisée"}
-        </span>
+        {item.quantityCheck ? (
+          <span className="text-xs font-semibold text-warm-700">⚠️ Quantité à vérifier : {checkLabel(item)}</span>
+        ) : (
+          <span className="text-xs text-stone-500">
+            {item.quantity !== null && item.unit ? formatAmount({ value: item.quantity, unit: item.unit }) : "Quantité non précisée"}
+          </span>
+        )}
       </button>
       <button type="button" aria-pressed={item.priority}
         onClick={() => store.updateInventory(item.ingredientId, { priority: !item.priority })}
@@ -248,6 +284,15 @@ function InventoryRow({ item, onEdit }: { item: InventoryItem; onEdit: () => voi
       </button>
     </li>
   );
+}
+
+function amountLabel(a: { quantity: number; unit: Unit | null }): string {
+  return a.unit ? formatAmount({ value: a.quantity, unit: a.unit }) : String(a.quantity).replace(".", ",");
+}
+
+/** « 6 pièces ou 4 pièces » */
+function checkLabel(item: InventoryItem): string {
+  return (item.quantityCheck ?? []).map(amountLabel).join(" ou ");
 }
 
 function QuantityForm({ item, onClose }: { item: InventoryItem; onClose: () => void }) {
@@ -265,7 +310,24 @@ function QuantityForm({ item, onClose }: { item: InventoryItem; onClose: () => v
 
   return (
     <form onSubmit={save} className="space-y-4">
-      <p className="text-sm text-stone-600">La quantité est facultative. Elle permet de calculer précisément ce qui manque.</p>
+      {item.quantityCheck ? (
+        <div className="space-y-2">
+          <p className="text-sm font-semibold text-warm-700">
+            ⚠️ Quantité à vérifier : les deux téléphones n&apos;avaient pas la même. Laquelle est la bonne ?
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {item.quantityCheck.map((a, i) => (
+              <button key={i} type="button" className="chip"
+                onClick={() => { store.updateInventory(item.ingredientId, { quantity: a.quantity, unit: a.unit }); onClose(); }}>
+                {amountLabel(a)}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-stone-500">Ou saisissez la quantité exacte :</p>
+        </div>
+      ) : (
+        <p className="text-sm text-stone-600">La quantité est facultative. Elle permet de calculer précisément ce qui manque.</p>
+      )}
       <div className="flex gap-2">
         <input className="input w-28" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="—" aria-label="Quantité" autoFocus />
         <select className="input flex-1" value={unit} onChange={(e) => setUnit(e.target.value as Unit)} aria-label="Unité">
@@ -281,7 +343,7 @@ function QuantityForm({ item, onClose }: { item: InventoryItem; onClose: () => v
 }
 
 /** Produits hors recettes rangés après les courses (café, lessive, papier toilette…). */
-function CustomStock({ title, items }: { title: string; items: InventoryItem[] }) {
+function CustomStock({ title, items, onEdit }: { title: string; items: InventoryItem[]; onEdit: (i: InventoryItem) => void }) {
   const store = useStore();
   if (items.length === 0) return null;
   const sorted = [...items].sort((a, b) =>
@@ -297,6 +359,11 @@ function CustomStock({ title, items }: { title: string; items: InventoryItem[] }
             <span className="flex-1">
               {item.customName}
               <span className="ml-2 text-xs text-stone-400">{AISLE_LABELS[item.aisle ?? "autres"]}</span>
+              {item.quantityCheck && (
+                <button type="button" onClick={() => onEdit(item)} className="block text-left text-xs font-semibold text-warm-700 underline">
+                  ⚠️ Quantité à vérifier : {checkLabel(item)}
+                </button>
+              )}
             </span>
             <button type="button" onClick={() => store.removeFromInventory(item.ingredientId)}
               className="flex h-12 w-12 items-center justify-center text-stone-400" aria-label={`Retirer ${item.customName ?? ""} (terminé)`}>

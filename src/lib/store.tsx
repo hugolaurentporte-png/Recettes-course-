@@ -13,6 +13,10 @@ import { RECIPES_BY_ID } from "./data/recipes";
 import { consumeRecipe, restoreStock, stockFromPurchase } from "./domain/stock";
 import { isHouseholdCode, itemsToPush, mergeRemote, newHouseholdCode } from "./sync/engine";
 import { pullItems, pushItems } from "./sync/client";
+import {
+  enterHousehold, isMemberKey, leaveHousehold, listMembers, newMemberKey, pullDocs, pushDocs, type HouseholdMember,
+} from "./sync/docs";
+import { FRIDGE_KIND, applyRemote, firstMerge, localChanges, type StockDoc } from "./sync/fridge";
 
 export const ALL_EQUIPMENT: Equipment[] = ["four", "poele", "casserole", "cocotte", "airfryer", "thermomix", "sans-cuisson"];
 
@@ -35,6 +39,8 @@ interface State {
   trips: ShoppingTrip[];
   /** Code du foyer si la liste de courses est partagée. */
   household: string | null;
+  /** Le frigo est partagé avec le foyer. */
+  fridgeShared: boolean;
 }
 
 export interface SyncStatus {
@@ -55,9 +61,16 @@ function changed<T>(prev: readonly T[], next: readonly T[]): T[] {
   return next.filter((x) => !before.has(x));
 }
 
+/** Corriger la quantité règle la « Quantité à vérifier ». */
+function withoutCheck(item: InventoryItem, patch: object): InventoryItem {
+  if (!("quantity" in patch) || !item.quantityCheck) return item;
+  const { quantityCheck: _done, ...rest } = item;
+  return rest;
+}
+
 function useAppState() {
   const [state, setState] = useState<State>({
-    ready: false, shopping: [], history: [], inventory: [], settings: DEFAULT_SETTINGS, plan: [], trips: [], household: null,
+    ready: false, shopping: [], history: [], inventory: [], settings: DEFAULT_SETTINGS, plan: [], trips: [], household: null, fridgeShared: false,
   });
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ lastSync: null, failing: false });
   const stateRef = useRef(state);
@@ -71,7 +84,7 @@ function useAppState() {
     return undefined;
   }, []);
   const [storageError, setStorageError] = useState<string | null>(null);
-  const commitInventoryRef = useRef<(next: InventoryItem[]) => void>(() => {});
+  const commitInventoryRef = useRef<(next: InventoryItem[], opts?: { remote?: boolean }) => void>(() => {});
 
   useEffect(() => {
     let cancelled = false;
@@ -84,9 +97,11 @@ function useAppState() {
         }
         deviceId.current = id;
         await db.purgeTombstones(Date.now());
-        const [data, settings, plan, household] = await Promise.all([
+        const [data, settings, plan, household, fridgeShared, outbox] = await Promise.all([
           db.loadAll(), db.getMeta<Settings>("settings"), db.getMeta<PlanEntry[]>("plan"), db.getMeta<string>("household"),
+          db.getMeta<boolean>("fridgeShared"), db.getMeta<StockDoc[]>("fridgeOutbox"),
         ]);
+        fridgeOutbox.current = new Map((outbox ?? []).map((d) => [d.id, d]));
         if (cancelled) return;
         const loaded: State = {
           ready: true,
@@ -97,6 +112,7 @@ function useAppState() {
           plan: prunePlan(plan ?? [], new Date()),
           trips: data.trips,
           household: isHouseholdCode(household) ? household : null,
+          fridgeShared: isHouseholdCode(household) && fridgeShared === true,
         };
         stateRef.current = loaded;
         setState(loaded);
@@ -160,6 +176,58 @@ function useAppState() {
   const syncing = useRef<Promise<void> | null>(null);
   const syncAgain = useRef(false);
 
+  /** Produits du frigo modifiés ici et pas encore envoyés au foyer (un par produit, le dernier état). */
+  const fridgeOutbox = useRef<Map<string, StockDoc>>(new Map());
+  const saveOutbox = useCallback(() => db.setMeta("fridgeOutbox", [...fridgeOutbox.current.values()]), []);
+
+  /** Clé secrète de ce téléphone (membre du foyer), créée une fois. */
+  const memberKey = useCallback(async () => {
+    let key = await db.getMeta<string>("memberKey");
+    if (!isMemberKey(key)) {
+      key = newMemberKey((n) => crypto.getRandomValues(new Uint8Array(n)));
+      await db.setMeta("memberKey", key);
+    }
+    return key;
+  }, []);
+
+  const runFridgeSync = useCallback(async (code: string) => {
+    if (!stateRef.current.fridgeShared) return;
+    const key = await memberKey();
+    // 1. Inscription au foyer (une fois par foyer, rejouée si elle n'a pas pu se faire hors ligne).
+    if ((await db.getMeta<string>("memberOf")) !== code) {
+      await enterHousehold(code, key, (await db.getMeta<string>("memberName")) ?? "");
+      await db.setMeta("memberOf", code);
+    }
+    if (stateRef.current.household !== code || !stateRef.current.fridgeShared) return;
+    // 2. Premier partage : fusion de ce frigo avec celui du foyer.
+    if ((await db.getMeta<string>("fridgeMergedWith")) !== code) {
+      const all = await pullDocs<StockDoc>(key, FRIDGE_KIND, 0);
+      if (stateRef.current.household !== code) return;
+      const m = firstMerge(stateRef.current.inventory, all.docs, Date.now(), uuid);
+      fridgeOutbox.current = new Map(m.toPush.map((d) => [d.id, d]));
+      await saveOutbox();
+      commitInventoryRef.current(m.inventory, { remote: true });
+      await Promise.all([db.setMeta("fridgeSeq", all.seq), db.setMeta("fridgeMergedWith", code)]);
+      if (m.conflicts) setFridgeConflicts(m.conflicts);
+    }
+    // 3. Envoi des produits modifiés ici, un document par produit.
+    const sending = [...fridgeOutbox.current.values()];
+    if (sending.length) {
+      await pushDocs(key, FRIDGE_KIND, sending);
+      for (const d of sending) {
+        if (fridgeOutbox.current.get(d.id) === d) fridgeOutbox.current.delete(d.id);
+      }
+      await saveOutbox();
+    }
+    // 4. Réception de ce que l'autre téléphone a changé.
+    const since = (await db.getMeta<number>("fridgeSeq")) ?? 0;
+    const pulled = await pullDocs<StockDoc>(key, FRIDGE_KIND, since);
+    if (stateRef.current.household !== code) return;
+    const next = applyRemote(stateRef.current.inventory, pulled.docs, fridgeOutbox.current, uuid);
+    if (next) commitInventoryRef.current(next, { remote: true });
+    if (pulled.seq !== since) await db.setMeta("fridgeSeq", pulled.seq);
+  }, [memberKey, saveOutbox]);
+
   const runSync = useCallback(async () => {
     const code = stateRef.current.household;
     if (!code) return;
@@ -181,12 +249,13 @@ function useAppState() {
         await db.putShopping(merged.changed);
       }
       if (pulled.seq !== since) await db.setMeta("syncSeq", pulled.seq);
+      await runFridgeSync(code);
       setSyncStatus({ lastSync: Date.now(), failing: false });
     } catch (e) {
       console.warn("Synchronisation impossible", e);
       setSyncStatus((s) => ({ ...s, failing: true }));
     }
-  }, []);
+  }, [runFridgeSync]);
 
   /** Lance une synchronisation (une seule à la fois ; une demande pendant l'envoi relance juste après). */
   const syncNow = useCallback((): Promise<void> => {
@@ -229,25 +298,62 @@ function useAppState() {
     };
   }, [state.ready, state.household, syncNow]);
 
-  /** Rejoint (code donné) ou crée (sans code) une liste partagée ; la liste actuelle y est ajoutée. */
-  const startSharing = useCallback(async (joinCode?: string) => {
-    const code = joinCode ?? newHouseholdCode((n) => crypto.getRandomValues(new Uint8Array(n)));
+  /** Nombre de produits « Quantité à vérifier » après la première fusion du frigo (pour un message). */
+  const [fridgeConflicts, setFridgeConflicts] = useState(0);
+
+  /**
+   * Rejoint (code donné) ou crée (sans code) un foyer : liste de courses partagée et,
+   * sauf `fridge: false`, frigo partagé. Ce qui est déjà saisi ici est conservé et ajouté au foyer.
+   */
+  const startSharing = useCallback(async (joinCode?: string, opts: { fridge?: boolean; name?: string } = {}) => {
+    const code = joinCode ?? stateRef.current.household ?? newHouseholdCode((n) => crypto.getRandomValues(new Uint8Array(n)));
     if (!isHouseholdCode(code)) throw new Error("Code de partage invalide");
-    await Promise.all([db.setMeta("household", code), db.setMeta("syncSeq", 0), db.setMeta("syncPushedUpTo", 0)]);
-    const updated = { ...stateRef.current, household: code };
+    const fridge = opts.fridge ?? true;
+    const sameHousehold = code === stateRef.current.household;
+    if (opts.name !== undefined) await db.setMeta("memberName", opts.name.trim().slice(0, 40));
+    if (!sameHousehold) {
+      await Promise.all([
+        db.setMeta("household", code), db.setMeta("syncSeq", 0), db.setMeta("syncPushedUpTo", 0),
+        db.setMeta("fridgeSeq", 0), db.setMeta("fridgeMergedWith", null), db.setMeta("fridgeOutbox", []),
+      ]);
+      fridgeOutbox.current = new Map();
+    }
+    const fridgeShared = fridge || (sameHousehold && stateRef.current.fridgeShared);
+    await db.setMeta("fridgeShared", fridgeShared);
+    const updated = { ...stateRef.current, household: code, fridgeShared };
     stateRef.current = updated;
     setState(updated);
     await syncNow();
     return code;
   }, [syncNow]);
 
-  /** Arrête le partage sur ce téléphone (la liste reste telle quelle). */
+  /** Partage le frigo avec le foyer de la liste de courses (même foyer, même code). */
+  const shareFridge = useCallback(async () => {
+    if (!stateRef.current.household) return startSharing(undefined, { fridge: true });
+    return startSharing(stateRef.current.household, { fridge: true });
+  }, [startSharing]);
+
+  /** Arrête le partage sur ce téléphone (la liste et le frigo restent tels quels ici). */
   const stopSharing = useCallback(async () => {
-    await db.setMeta("household", null);
-    const updated = { ...stateRef.current, household: null };
+    const key = await db.getMeta<string>("memberKey");
+    if (isMemberKey(key) && (await db.getMeta<string>("memberOf"))) {
+      await leaveHousehold(key).catch(() => {}); // hors ligne : l'accès sera refusé au prochain foyer rejoint
+    }
+    await Promise.all([
+      db.setMeta("household", null), db.setMeta("fridgeShared", false), db.setMeta("memberOf", null),
+      db.setMeta("fridgeMergedWith", null), db.setMeta("fridgeOutbox", []), db.setMeta("fridgeSeq", 0),
+    ]);
+    fridgeOutbox.current = new Map();
+    const updated = { ...stateRef.current, household: null, fridgeShared: false };
     stateRef.current = updated;
     setState(updated);
     setSyncStatus({ lastSync: null, failing: false });
+  }, []);
+
+  const householdMembers = useCallback(async (): Promise<HouseholdMember[]> => {
+    const key = await db.getMeta<string>("memberKey");
+    if (!isMemberKey(key) || !(await db.getMeta<string>("memberOf"))) return [];
+    return listMembers(key);
   }, []);
 
   // ---------- Courses ----------
@@ -420,16 +526,31 @@ function useAppState() {
   );
 
   // ---------- Frigo ----------
+  /**
+   * Toute modification du frigo passe ici (ajout, quantité, « Terminer mes courses », « J'ai cuisiné »…).
+   * Si le frigo est partagé, chaque produit modifié ou retiré part dans la file d'envoi.
+   * `remote` : changement reçu du foyer, à ne pas renvoyer.
+   */
   const commitInventory = useCallback(
-    (next: InventoryItem[]) => {
+    (proposed: InventoryItem[], opts: { remote?: boolean } = {}) => {
       const prev = stateRef.current;
+      let next = proposed;
+      let outbox: StockDoc[] | undefined;
+      if (prev.fridgeShared && !opts.remote) {
+        const c = localChanges(prev.inventory, proposed, Date.now(), deviceId.current);
+        next = c.inventory;
+        if (c.docs.length) {
+          for (const d of c.docs) fridgeOutbox.current.set(d.id, d);
+          outbox = [...fridgeOutbox.current.values()];
+          scheduleSyncRef.current();
+        }
+      }
       const nextIds = new Set(next.map((i) => i.id));
       const removed = prev.inventory.filter((i) => !nextIds.has(i.id)).map((i) => i.id);
       const updated = { ...prev, inventory: next };
       stateRef.current = updated;
       setState(updated);
-      persist(db.putInventory(changed(prev.inventory, next)));
-      persist(db.deleteInventory(removed));
+      persist(db.saveInventory(changed(prev.inventory, next), removed, outbox));
     },
     [persist],
   );
@@ -457,7 +578,7 @@ function useAppState() {
     (ingredientId: string, patch: Partial<Pick<InventoryItem, "quantity" | "unit" | "priority">>) =>
       commitInventory(
         stateRef.current.inventory.map((i) =>
-          i.ingredientId === ingredientId ? { ...i, ...patch, updatedAt: Date.now() } : i,
+          i.ingredientId === ingredientId ? withoutCheck({ ...i, ...patch, updatedAt: Date.now() }, patch) : i,
         ),
       ),
     [commitInventory],
@@ -509,7 +630,8 @@ function useAppState() {
     planRecipe, updatePlanEntry, removePlanEntry, addPlanToShopping,
     addToInventory, removeFromInventory, updateInventory, cookRecipe,
     updateSettings,
-    syncStatus, syncNow, startSharing, stopSharing,
+    syncStatus, syncNow, startSharing, stopSharing, shareFridge, householdMembers,
+    fridgeConflicts, dismissFridgeConflicts: () => setFridgeConflicts(0),
   };
 }
 

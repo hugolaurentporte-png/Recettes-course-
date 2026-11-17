@@ -1,7 +1,7 @@
 import type { ShoppingItem } from "../domain/types";
 import { SYNC_KEY, SYNC_URL } from "./config";
 
-async function rpc<T>(name: string, body: unknown): Promise<T> {
+export async function rpc<T>(name: string, body: unknown): Promise<T> {
   const res = await fetch(`${SYNC_URL}/rest/v1/rpc/${name}`, {
     method: "POST",
     headers: { apikey: SYNC_KEY, "Content-Type": "application/json" },
