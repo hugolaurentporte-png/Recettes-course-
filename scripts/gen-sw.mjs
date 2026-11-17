@@ -50,7 +50,8 @@ self.addEventListener("fetch", (e) => {
   // Les pages : réseau d'abord (pour les mises à jour), cache si hors connexion.
   if (req.mode === "navigate") {
     e.respondWith(
-      fetch(req)
+      // no-cache : on redemande toujours la page au serveur (GitHub garde sinon l'ancienne 10 minutes).
+      fetch(new Request(req, { cache: "no-cache" }))
         .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return res; })
         .catch(async () => (await caches.match(req, { ignoreSearch: true }))
           ?? (await caches.match(url.pathname.endsWith("/") ? url.pathname : url.pathname + "/"))

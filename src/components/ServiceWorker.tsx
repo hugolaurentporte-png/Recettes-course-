@@ -6,7 +6,7 @@ import { useEffect } from "react";
 export function ServiceWorker() {
   useEffect(() => {
     if (process.env.NODE_ENV !== "production" || !("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/sw.js`).catch((e) => console.warn("Service worker non enregistré", e));
+    navigator.serviceWorker.register(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/sw.js`, { updateViaCache: "none" }).catch((e) => console.warn("Service worker non enregistré", e));
   }, []);
   return null;
 }
