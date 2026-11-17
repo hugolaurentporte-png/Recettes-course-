@@ -175,7 +175,7 @@ const rowCount = (page, name) => page.getByRole("button", { name: `Retirer ${nam
     await cook.first().click();
     await A.page.getByRole("checkbox", { name: /Pommes de terre/ }).check();
     await A.page.getByRole("button", { name: /Retirer les produits terminés/ }).click();
-    await A.page.goto(`${BASE}/frigo/`);
+    await A.page.getByRole("link", { name: /Mon frigo/ }).click(); // navigation dans l'appli, sans recharger
   } else {
     await A.page.getByRole("button", { name: "Retirer Pommes de terre" }).click();
   }
