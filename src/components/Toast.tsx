@@ -8,16 +8,16 @@ interface ToastData {
   action?: { label: string; run: () => void };
 }
 
-const ToastContext = createContext<(message: string, action?: ToastData["action"]) => void>(() => {});
+const ToastContext = createContext<(message: string, action?: ToastData["action"], durationMs?: number) => void>(() => {});
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<ToastData | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const show = useCallback((message: string, action?: ToastData["action"]) => {
+  const show = useCallback((message: string, action?: ToastData["action"], durationMs?: number) => {
     if (timer.current) clearTimeout(timer.current);
     setToast({ id: Date.now(), message, action });
-    timer.current = setTimeout(() => setToast(null), action ? 5000 : 2500);
+    timer.current = setTimeout(() => setToast(null), durationMs ?? (action ? 5000 : 2500));
   }, []);
 
   return (

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { RECIPES_BY_ID } from "@/lib/data/recipes";
 import { getIngredient } from "@/lib/data/ingredients";
 import { recipeAvailability, type LineStatus } from "@/lib/domain/availability";
 import { seasonLevel } from "@/lib/data/seasonality";
 import { formatAmount } from "@/lib/domain/units";
+import { cookedIngredientsInStock } from "@/lib/domain/stock";
 import { EQUIPMENT_LABELS, formatMinutes } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import { useToast } from "@/components/Toast";
@@ -30,6 +31,10 @@ export function RecipeDetail({ id }: { id: string }) {
   const router = useRouter();
   const [servings, setServings] = useState(recipe.servings);
   const [planning, setPlanning] = useState(false);
+  const [cooking, setCooking] = useState(false);
+  const [finished, setFinished] = useState<Set<string>>(new Set());
+  /** Empêche un double appui de déduire deux fois : une seule validation par ouverture du panneau. */
+  const cookSubmitted = useRef(false);
   const a = useMemo(
     () => recipeAvailability(recipe, store.inventoryMap, getIngredient, servings),
     [recipe, store.inventoryMap, servings],
@@ -44,6 +49,36 @@ export function RecipeDetail({ id }: { id: string }) {
       n === 0 ? "Rien à ajouter : vous avez tout" : `${n} article${n > 1 ? "s" : ""} ajouté${n > 1 ? "s" : ""} aux courses`,
       n > 0 ? { label: "Voir", run: () => router.push("/courses/") } : undefined,
     );
+  }
+
+  const inStock = useMemo(() => cookedIngredientsInStock(recipe, store.inventoryMap), [recipe, store.inventoryMap]);
+
+  function openCooked() {
+    if (inStock.length === 0) {
+      toast("Aucun ingrédient de cette recette n'était dans Mon frigo");
+      return;
+    }
+    cookSubmitted.current = false;
+    setFinished(new Set());
+    setCooking(true);
+  }
+
+  function validateCooked(done: ReadonlySet<string>) {
+    if (cookSubmitted.current) return;
+    cookSubmitted.current = true;
+    setCooking(false);
+    const r = store.cookRecipe(recipe, servings, done);
+    const parts: string[] = [];
+    if (r.removed) parts.push(`${r.removed} produit${r.removed > 1 ? "s" : ""} retiré${r.removed > 1 ? "s" : ""}`);
+    if (r.updated) parts.push(`${r.updated} quantité${r.updated > 1 ? "s" : ""} estimée${r.updated > 1 ? "s" : ""}`);
+    toast(parts.length ? `Frigo mis à jour : ${parts.join(", ")}` : "Frigo à jour", { label: "Annuler", run: r.undo }, 8000);
+  }
+
+  function toggleFinished(ingredientId: string) {
+    const next = new Set(finished);
+    if (next.has(ingredientId)) next.delete(ingredientId);
+    else next.add(ingredientId);
+    setFinished(next);
   }
 
   return (
@@ -135,7 +170,44 @@ export function RecipeDetail({ id }: { id: string }) {
             </li>
           ))}
         </ol>
+
+        <button type="button" className="btn-primary mb-8 w-full" onClick={openCooked}>
+          🍳 J&apos;ai cuisiné
+        </button>
       </div>
+
+      <Sheet open={cooking} onClose={() => setCooking(false)} title="Tu as fini quelque chose ?">
+        <p className="text-sm text-stone-600">Coche les produits que tu as entièrement terminés. Pour le reste, on estime ce qu&apos;il reste.</p>
+        <ul className="mt-3 divide-y divide-stone-100">
+          {inStock.map((item) => {
+            const name = getIngredient(item.ingredientId)?.name ?? item.customName ?? item.ingredientId;
+            const checked = finished.has(item.ingredientId);
+            return (
+              <li key={item.ingredientId}>
+                <label className="flex min-h-12 cursor-pointer items-center gap-3 py-2">
+                  <input type="checkbox" className="h-6 w-6 accent-brand-600" checked={checked}
+                    onChange={() => toggleFinished(item.ingredientId)} />
+                  <span className="flex-1">{name}</span>
+                  <span className="text-sm text-stone-500">
+                    {item.quantity !== null && item.unit ? formatAmount({ value: item.quantity, unit: item.unit }) : "quantité inconnue"}
+                  </span>
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="mt-4 flex flex-col gap-2">
+          {finished.size > 0 && (
+            <button type="button" className="btn-primary w-full" onClick={() => validateCooked(finished)}>
+              Retirer les produits terminés ({finished.size})
+            </button>
+          )}
+          <button type="button" className={`${finished.size > 0 ? "btn-secondary" : "btn-primary"} w-full`}
+            onClick={() => validateCooked(new Set())}>
+            Rien de terminé
+          </button>
+        </div>
+      </Sheet>
 
       <Sheet open={planning} onClose={() => setPlanning(false)} title="Quand ?">
         {planning && (
