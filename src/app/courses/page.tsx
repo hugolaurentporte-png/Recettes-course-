@@ -45,7 +45,10 @@ export default function CoursesPage() {
 
   function onFinish() {
     const r = store.finish();
-    if (r) toast(`Courses terminées : ${r.count} article${r.count > 1 ? "s" : ""} archivé${r.count > 1 ? "s" : ""}`, { label: "Annuler", run: r.undo });
+    if (r) toast(
+      `Courses terminées : ${r.count} article${r.count > 1 ? "s" : ""} rangé${r.count > 1 ? "s" : ""}${r.stocked > 0 ? ` (${r.stocked} nouveau${r.stocked > 1 ? "x" : ""} dans Mon frigo)` : ""}`,
+      { label: "Annuler", run: r.undo },
+    );
   }
 
   return (
@@ -113,7 +116,7 @@ export default function CoursesPage() {
           <button type="button" className="btn-primary mt-4 w-full" onClick={onFinish}>
             Terminer mes courses
           </button>
-          <p className="mt-2 text-center text-xs text-stone-500">Les articles cochés sont archivés, les autres restent dans la liste.</p>
+          <p className="mt-2 text-center text-xs text-stone-500">Les articles cochés sont rangés dans « Mon frigo », les autres restent dans la liste.</p>
         </section>
       )}
 

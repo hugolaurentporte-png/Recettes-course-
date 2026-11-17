@@ -97,7 +97,11 @@ export interface Recipe {
 /** Un ingrédient possédé (Mon frigo). */
 export interface InventoryItem {
   id: string;
+  /** Ingrédient du catalogue, ou « custom:<clé> » pour un produit libre (lessive, café…). */
   ingredientId: string;
+  /** Produit libre seulement : nom affiché et rayon. */
+  customName?: string;
+  aisle?: Aisle;
   quantity: number | null;
   unit: Unit | null;
   priority: boolean;

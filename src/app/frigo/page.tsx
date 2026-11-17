@@ -4,6 +4,8 @@ import { useMemo, useState, type FormEvent } from "react";
 import { ALL_EQUIPMENT, useStore } from "@/lib/store";
 import { CATEGORY_LABELS, CATEGORY_ORDER, COMMON_INGREDIENT_IDS, INGREDIENTS, getIngredient } from "@/lib/data/ingredients";
 import { searchIngredients } from "@/lib/domain/search";
+import { HOME_AISLES, isCustomStock } from "@/lib/domain/stock";
+import { AISLE_ICONS, AISLE_LABELS, AISLE_ORDER } from "@/lib/domain/categorize";
 import { EDITABLE_UNITS, UNITS, formatAmount } from "@/lib/domain/units";
 import type { Ingredient, InventoryItem, Unit } from "@/lib/domain/types";
 import { EQUIPMENT_LABELS } from "@/lib/labels";
@@ -20,7 +22,10 @@ export default function FrigoPage() {
   const results = useMemo(() => searchIngredients(q), [q]);
   const owned = store.inventoryMap;
   const staples = INGREDIENTS.filter((i) => i.staple);
-  const nonStaple = store.inventory.filter((i) => !getIngredient(i.ingredientId)?.staple);
+  const nonStaple = store.inventory.filter((i) => !isCustomStock(i) && !getIngredient(i.ingredientId)?.staple);
+  const custom = store.inventory.filter(isCustomStock);
+  const pantry = custom.filter((i) => !HOME_AISLES.has(i.aisle ?? "autres"));
+  const home = custom.filter((i) => HOME_AISLES.has(i.aisle ?? "autres"));
   const priority = nonStaple.filter((i) => i.priority);
   const common = COMMON_INGREDIENT_IDS.filter((id) => !owned.has(id)).map((id) => getIngredient(id)).filter(Boolean) as Ingredient[];
 
@@ -122,6 +127,9 @@ export default function FrigoPage() {
         </section>
       ))}
 
+      <CustomStock title="🥫 Placards (autres produits)" items={pantry} />
+      <CustomStock title="🏠 À la maison" items={home} />
+
       <section>
         <h2 className="section-title">Mes indispensables</h2>
         <p className="mb-2 px-1 text-xs text-stone-500">Cochez ceux que vous avez habituellement. Ils ne sont pas considérés comme disponibles par défaut.</p>
@@ -216,5 +224,34 @@ function QuantityForm({ item, onClose }: { item: InventoryItem; onClose: () => v
         <button type="submit" className="btn-primary flex-1">Enregistrer</button>
       </div>
     </form>
+  );
+}
+
+/** Produits hors recettes rangés après les courses (café, lessive, papier toilette…). */
+function CustomStock({ title, items }: { title: string; items: InventoryItem[] }) {
+  const store = useStore();
+  if (items.length === 0) return null;
+  const sorted = [...items].sort((a, b) =>
+    AISLE_ORDER.indexOf(a.aisle ?? "autres") - AISLE_ORDER.indexOf(b.aisle ?? "autres")
+    || (a.customName ?? "").localeCompare(b.customName ?? "", "fr"));
+  return (
+    <section>
+      <h2 className="section-title">{title}</h2>
+      <ul className="card divide-y divide-stone-100">
+        {sorted.map((item) => (
+          <li key={item.id} className="flex min-h-[52px] items-center gap-2 pl-4">
+            <span aria-hidden="true">{AISLE_ICONS[item.aisle ?? "autres"]}</span>
+            <span className="flex-1">
+              {item.customName}
+              <span className="ml-2 text-xs text-stone-400">{AISLE_LABELS[item.aisle ?? "autres"]}</span>
+            </span>
+            <button type="button" onClick={() => store.removeFromInventory(item.ingredientId)}
+              className="flex h-12 w-12 items-center justify-center text-stone-400" aria-label={`Retirer ${item.customName ?? ""} (terminé)`}>
+              <XIcon width={20} height={20} />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
