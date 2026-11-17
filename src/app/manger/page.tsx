@@ -10,6 +10,7 @@ import { EQUIPMENT_LABELS } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import { useRanking } from "@/lib/useRanking";
 import { MealCard } from "@/components/MealCard";
+import { RandomPick } from "@/components/RandomPick";
 
 const TIMES: TimeFilter[] = [15, 30, 45];
 /** Ordre d'affichage du matériel. */
@@ -17,16 +18,17 @@ const MODES: Equipment[] = ["thermomix", "four", "cocotte", "poele", "casserole"
 const ALL = "tout";
 const PAGE = 30;
 
-/** Lien vers une étape du parcours (?c=plat&k=gratin…). */
-function stepHref(c?: Course, k?: string) {
+/** Lien vers une étape du parcours (?c=plat&k=gratin&m=thermomix…). Le matériel choisi suit d'une étape à l'autre. */
+function stepHref(c?: Course, k?: string, m: Equipment[] = []) {
   const p = new URLSearchParams();
   if (c) p.set("c", c);
   if (k) p.set("k", k);
+  if (m.length > 0) p.set("m", m.join(","));
   const s = p.toString();
   return s ? `/manger/?${s}` : "/manger/";
 }
 
-function Crumbs({ course, typeLabel }: { course?: Course; typeLabel?: string }) {
+function Crumbs({ course, typeLabel, modes }: { course?: Course; typeLabel?: string; modes: Equipment[] }) {
   return (
     <nav aria-label="Étapes" className="flex flex-wrap items-center gap-1 text-sm text-stone-500">
       {course ? <Link href={stepHref()} className="font-semibold text-brand-700">Repas</Link> : <span>Repas</span>}
@@ -34,7 +36,7 @@ function Crumbs({ course, typeLabel }: { course?: Course; typeLabel?: string }) 
         <>
           <span aria-hidden="true">›</span>
           {typeLabel ? (
-            <Link href={stepHref(course)} className="font-semibold text-brand-700">{COURSES_BY_ID[course].label}</Link>
+            <Link href={stepHref(course, undefined, modes)} className="font-semibold text-brand-700">{COURSES_BY_ID[course].label}</Link>
           ) : (
             <span>{COURSES_BY_ID[course].label}</span>
           )}
@@ -51,6 +53,7 @@ function Crumbs({ course, typeLabel }: { course?: Course; typeLabel?: string }) 
 }
 
 function ChooseCourse() {
+  const plats = useRanking(EMPTY_FILTERS).filter((s) => matchesMeal(s.recipe, "plat", null));
   return (
     <>
       <h1 className="mt-2 text-2xl font-bold">Qu&apos;est-ce qu&apos;on mange&nbsp;?</h1>
@@ -67,34 +70,65 @@ function ChooseCourse() {
           </Link>
         ))}
       </div>
+      <RandomPick pool={plats} label="🎲 Vraiment pas d'idée ? Tirer un plat au sort" />
     </>
   );
 }
 
-function ChooseType({ course }: { course: Course }) {
+function ChooseType({ course, modes }: { course: Course; modes: Equipment[] }) {
+  const router = useRouter();
   const def = COURSES_BY_ID[course];
-  const ranked = useRanking(EMPTY_FILTERS);
+  const ranked = useRanking({ ...EMPTY_FILTERS, modes }, modes);
   const inCourse = ranked.filter((s) => matchesMeal(s.recipe, course, null));
   const counts = def.types
     .map((t) => ({ t, n: inCourse.filter((s) => matchesMeal(s.recipe, course, t.id)).length }))
     .filter((x) => x.n > 0);
+  // Matériel proposé : tout celui qui sert pour ce moment du repas (le choisir vaut « je l'ai »).
+  const all = useRanking(EMPTY_FILTERS, MODES).filter((s) => matchesMeal(s.recipe, course, null));
+  const used = new Set(all.flatMap((s) => recipeModes(s.recipe)));
+  const choices = MODES.filter((m) => used.has(m));
+
+  function pick(m: Equipment | null) {
+    router.replace(stepHref(course, undefined, m ? [m] : []), { scroll: false });
+  }
 
   return (
     <>
       <h1 className="mt-2 text-2xl font-bold">{def.emoji} {def.label}</h1>
-      <p className="mt-1 text-stone-600">Quel type de recette&nbsp;?</p>
-      <Link href={stepHref(course, ALL)} className="btn-primary mt-5 w-full py-4">
-        ✨ Toutes les idées <span className="font-normal opacity-80">({inCourse.length})</span>
-      </Link>
-      <div className="mt-3 grid grid-cols-2 gap-3">
-        {counts.map(({ t, n }) => (
-          <Link key={t.id} href={stepHref(course, t.id)} className="card flex min-h-[88px] flex-col justify-center p-3 active:scale-[0.98]">
-            <span className="text-2xl" aria-hidden="true">{t.emoji}</span>
-            <span className="mt-1 font-semibold leading-tight">{t.label}</span>
-            <span className="text-xs text-stone-500">{n} recette{n > 1 ? "s" : ""}</span>
-          </Link>
-        ))}
+      <h2 className="mt-4 font-semibold">Avec quel matériel&nbsp;?</h2>
+      <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Matériel">
+        <button type="button" aria-pressed={modes.length === 0} className={`chip ${modes.length === 0 ? "chip-on" : ""}`} onClick={() => pick(null)}>
+          Peu importe
+        </button>
+        {choices.map((m) => {
+          const on = modes.length === 1 && modes[0] === m;
+          return (
+            <button key={m} type="button" aria-pressed={on} className={`chip ${on ? "chip-on" : ""}`} onClick={() => pick(on ? null : m)}>
+              {EQUIPMENT_LABELS[m]}
+            </button>
+          );
+        })}
       </div>
+      <h2 className="mt-5 font-semibold">Quel type de recette&nbsp;?</h2>
+      {inCourse.length === 0 ? (
+        <p className="card mt-3 p-4 text-center text-stone-600">Aucune recette avec ce matériel pour l&apos;instant.</p>
+      ) : (
+        <>
+          <Link href={stepHref(course, ALL, modes)} className="btn-primary mt-3 w-full py-4">
+            ✨ Toutes les idées <span className="font-normal opacity-80">({inCourse.length})</span>
+          </Link>
+          <RandomPick pool={inCourse} />
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            {counts.map(({ t, n }) => (
+              <Link key={t.id} href={stepHref(course, t.id, modes)} className="card flex min-h-[88px] flex-col justify-center p-3 active:scale-[0.98]">
+                <span className="text-2xl" aria-hidden="true">{t.emoji}</span>
+                <span className="mt-1 font-semibold leading-tight">{t.label}</span>
+                <span className="text-xs text-stone-500">{n} recette{n > 1 ? "s" : ""}</span>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
     </>
   );
 }
@@ -116,8 +150,9 @@ function Results({ course, type }: { course: Course; type: string | null }) {
   );
 
   // Le moteur applique déjà le matériel renseigné dans Mon frigo (ownedEquipment).
-  const base = useRanking(EMPTY_FILTERS).filter((s) => matchesMeal(s.recipe, course, type));
-  const filtered = useRanking({ ...EMPTY_FILTERS, maxMinutes, modes }).filter((s) => matchesMeal(s.recipe, course, type));
+  // Le matériel choisi compte comme possédé, même s'il n'est pas coché dans Mon frigo (ex. Thermomix).
+  const base = useRanking(EMPTY_FILTERS, modes).filter((s) => matchesMeal(s.recipe, course, type));
+  const filtered = useRanking({ ...EMPTY_FILTERS, maxMinutes, modes }, modes).filter((s) => matchesMeal(s.recipe, course, type));
 
   // Matériel proposé : celui qu'on possède et qui sert vraiment pour ce type de recette.
   const owned = new Set<Equipment>([...settings.ownedEquipment, "sans-cuisson"]);
@@ -145,7 +180,7 @@ function Results({ course, type }: { course: Course; type: string | null }) {
     <>
       <header className="sticky top-0 z-20 -mx-4 bg-[#f7f7f5]/95 px-4 pb-2 pt-2 backdrop-blur">
         <div className="flex items-center gap-2">
-          <Link href={stepHref(course)} className="btn-secondary min-h-[40px] px-3 text-sm" aria-label={`Retour aux types de ${def.label.toLowerCase()}`}>
+          <Link href={stepHref(course, undefined, modes)} className="btn-secondary min-h-[40px] px-3 text-sm" aria-label={`Retour aux types de ${def.label.toLowerCase()}`}>
             ‹ {def.label}
           </Link>
           <h1 className="min-w-0 flex-1 truncate text-xl font-bold">{typeDef?.emoji ?? "✨"} {label}</h1>
@@ -178,6 +213,8 @@ function Results({ course, type }: { course: Course; type: string | null }) {
         {inventory.length > 0 && filtered.length > 0 && <> · {readyCount} réalisable{readyCount > 1 ? "s" : ""} avec ton frigo</>}
         {hasFilters && <> · <button type="button" className="font-semibold text-brand-700 underline" onClick={() => setFilter({ t: null, m: [] })}>Effacer les filtres</button></>}
       </p>
+
+      {filtered.length > 1 && <div className="mb-3"><RandomPick pool={filtered} /></div>}
 
       {filtered.length === 0 ? (
         <>
@@ -223,14 +260,18 @@ function MangerInner() {
   const c = params.get("c");
   const k = params.get("k");
   const course = isCourse(c) ? c : undefined;
+  const modes = useMemo(
+    () => (params.get("m") ?? "").split(",").filter((m): m is Equipment => (MODES as string[]).includes(m)),
+    [params],
+  );
   const type = course && k && (k === ALL || COURSES_BY_ID[course].types.some((t) => t.id === k)) ? k : undefined;
   const typeLabel = type === ALL ? "Toutes les idées" : course && type ? COURSES_BY_ID[course].types.find((t) => t.id === type)?.label : undefined;
 
   return (
     <div className="px-4 pt-4">
-      <Crumbs course={course} typeLabel={typeLabel} />
+      <Crumbs course={course} typeLabel={typeLabel} modes={modes} />
       {!course && <ChooseCourse />}
-      {course && !type && <ChooseType course={course} />}
+      {course && !type && <ChooseType course={course} modes={modes} />}
       {course && type && <Results key={`${course}-${type}`} course={course} type={type === ALL ? null : type} />}
     </div>
   );

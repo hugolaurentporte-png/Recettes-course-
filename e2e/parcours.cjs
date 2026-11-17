@@ -118,6 +118,23 @@ await page.screenshot({ path: `${SHOTS}/7-recettes.png` });
 // Ligne du frigo (et non la pastille « Mes indispensables » du même nom).
 const pdtLine = () => page.locator("li button", { hasText: /^Pommes de terre/ });
 const pdtRow = async () => (await visible(pdtLine(), 3000)) ? pdtLine().first().innerText() : "";
+/** Attend que le frigo enregistré (IndexedDB) soit dans l'état voulu avant de recharger la page. */
+async function savedPotatoes(expected) {
+  for (let t = 0; t < 50; t++) {
+    const q = await page.evaluate(() => new Promise((resolve) => {
+      const req = indexedDB.open("recettes-courses");
+      req.onsuccess = () => {
+        const get = req.result.transaction("inventory").objectStore("inventory").getAll();
+        get.onsuccess = () => { const p = get.result.find((i) => i.ingredientId === "pomme-de-terre"); resolve(p ? p.quantity : "absent"); req.result.close(); };
+        get.onerror = () => resolve("erreur");
+      };
+      req.onerror = () => resolve("erreur");
+    }));
+    if (expected(q)) return true;
+    await page.waitForTimeout(100);
+  }
+  return false;
+}
 await page.goto(`${BASE}/recettes/tm-soupe-poireaux/`);
 await page.getByRole("button", { name: "J'ai cuisiné" }).click();
 const panel = page.getByRole("dialog", { name: "Tu as fini quelque chose ?" });
@@ -131,6 +148,7 @@ const nothing = panel.getByRole("button", { name: "Rien de terminé" });
 await nothing.evaluate((b) => { b.click(); b.click(); });
 check("confirmation avec « Annuler »", await visible(page.getByRole("button", { name: "Annuler" })));
 await page.screenshot({ path: `${SHOTS}/9-confirmation.png` });
+await savedPotatoes((q) => q === 100);
 await page.goto(`${BASE}/frigo/`);
 check("500 g − 400 g, double appui compté une fois → environ 100 g", /100 g/.test(await pdtRow()), await pdtRow());
 
@@ -139,7 +157,9 @@ await page.goto(`${BASE}/recettes/tm-soupe-poireaux/`);
 await page.getByRole("button", { name: "J'ai cuisiné" }).click();
 await panel.getByRole("checkbox", { name: /Pommes de terre/ }).check();
 await panel.getByRole("button", { name: /Retirer les produits terminés/ }).click();
+await savedPotatoes((q) => q === "absent");
 await page.getByRole("button", { name: "Annuler" }).click();
+check("« Annuler » enregistré dans le téléphone", await savedPotatoes((q) => q === 100));
 await page.goto(`${BASE}/frigo/`);
 check("« Annuler » remet les pommes de terre", /100 g/.test(await pdtRow()), await pdtRow());
 
@@ -148,6 +168,7 @@ await page.goto(`${BASE}/recettes/tm-soupe-poireaux/`);
 await page.getByRole("button", { name: "J'ai cuisiné" }).click();
 await panel.getByRole("checkbox", { name: /Pommes de terre/ }).check();
 await panel.getByRole("button", { name: /Retirer les produits terminés/ }).click();
+await savedPotatoes((q) => q === "absent");
 await page.goto(`${BASE}/frigo/`);
 await page.getByRole("button", { name: /^✓ Carottes/ }).or(page.locator("li button", { hasText: /^Carottes/ })).first().waitFor();
 check("produit terminé retiré du frigo", await pdtLine().count() === 0);
@@ -180,6 +201,26 @@ await page.getByRole("link", { name: /Retour aux types de plat/ }).click();
 check("mange : retour aux types de plats", await visible(page.getByRole("link", { name: /^Gratin/ })));
 await page.getByRole("link", { name: "Repas" }).click();
 check("mange : retour au choix du moment", await visible(page.getByRole("link", { name: /^Entrée/ })));
+
+// 7 quater. Tirage au sort et choix du matériel (Thermomix non coché dans Mon frigo).
+await page.getByRole("button", { name: /Tirer un plat au sort/ }).click();
+check("mange : un plat tiré au sort", await visible(page.getByTestId("random-pick")));
+const first = await page.getByTestId("random-pick").locator("h3").innerText();
+await page.getByRole("button", { name: /Une autre/ }).click();
+await page.waitForTimeout(200);
+const second = await page.getByTestId("random-pick").locator("h3").innerText();
+check("mange : « Une autre » tire une autre recette", first !== second, `${first} → ${second}`);
+await page.screenshot({ path: `${SHOTS}/16-mange-hasard.png` });
+await page.getByRole("link", { name: /^Plat/ }).click();
+await page.getByRole("button", { name: "Thermomix", exact: true }).click();
+await page.waitForURL(/m=thermomix/);
+await page.waitForTimeout(200);
+await page.screenshot({ path: `${SHOTS}/17-mange-thermomix.png` });
+await page.getByRole("link", { name: /Toutes les idées/ }).click();
+await page.getByTestId("meal-card").first().waitFor();
+const tmCards = await page.getByTestId("meal-card").count();
+const tmOk = await page.getByTestId("meal-card").filter({ hasText: "Thermomix" }).count();
+check("mange : Thermomix choisi → recettes Thermomix", tmCards > 0 && tmOk === tmCards, `${tmOk}/${tmCards}`);
 
 // 8. Hors connexion : après une première visite, l'appli doit s'ouvrir sans réseau.
 await page.goto(`${BASE}/courses/`);
