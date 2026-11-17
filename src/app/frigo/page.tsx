@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
 import { ALL_EQUIPMENT, useStore } from "@/lib/store";
-import { CATEGORY_ICONS, CATEGORY_LABELS, CATEGORY_ORDER, COMMON_INGREDIENT_IDS, INGREDIENTS, getIngredient } from "@/lib/data/ingredients";
+import { CATEGORY_ICONS, CATEGORY_LABELS, CATEGORY_ORDER, INGREDIENTS, getIngredient } from "@/lib/data/ingredients";
+import { quickAddGroups } from "@/lib/data/quickadd";
 import { searchIngredients } from "@/lib/domain/search";
 import { HOME_AISLES, isCustomStock } from "@/lib/domain/stock";
 import { AISLE_ICONS, AISLE_LABELS, AISLE_ORDER } from "@/lib/domain/categorize";
@@ -30,7 +31,10 @@ export default function FrigoPage() {
   const pantry = custom.filter((i) => !HOME_AISLES.has(i.aisle ?? "autres"));
   const home = custom.filter((i) => HOME_AISLES.has(i.aisle ?? "autres"));
   const priority = nonStaple.filter((i) => i.priority);
-  const common = COMMON_INGREDIENT_IDS.filter((id) => !owned.has(id)).map((id) => getIngredient(id)).filter(Boolean) as Ingredient[];
+  const quickGroups = useMemo(() => quickAddGroups(new Date().getMonth() + 1), []);
+  const common = quickGroups
+    .map((g) => ({ label: g.label, items: g.items.filter((ing) => !owned.has(ing.id)) }))
+    .filter((g) => g.items.length > 0);
 
   const byCategory = CATEGORY_ORDER.map((c) => ({
     c,
@@ -127,11 +131,18 @@ export default function FrigoPage() {
       {common.length > 0 && (
         <>
           <h2 className="section-title">Ajout rapide</h2>
-          <div className="flex flex-wrap gap-2">
-            {common.map((ing) => (
-              <button key={ing.id} type="button" className="chip" onClick={() => add(ing)}>
-                <PlusIcon width={16} height={16} /> {ing.name}
-              </button>
+          <div className="space-y-3">
+            {common.map((g) => (
+              <div key={g.label}>
+                <p className="mb-1 text-xs font-semibold text-stone-500">{g.label}</p>
+                <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4" aria-label={g.label}>
+                  {g.items.map((ing) => (
+                    <button key={ing.id} type="button" className="chip shrink-0" onClick={() => add(ing)}>
+                      <PlusIcon width={16} height={16} /> {ing.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </>
