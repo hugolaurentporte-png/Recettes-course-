@@ -152,6 +152,35 @@ await page.goto(`${BASE}/frigo/`);
 await page.getByRole("button", { name: /^✓ Carottes/ }).or(page.locator("li button", { hasText: /^Carottes/ })).first().waitFor();
 check("produit terminé retiré du frigo", await pdtLine().count() === 0);
 
+// 7 ter. « Qu'est-ce qu'on mange ? » : Plat → Gratin → 30 min max → Four, puis retour aux catégories.
+await page.goto(`${BASE}/`);
+await page.getByRole("link", { name: /Qu.est-ce qu.on mange/ }).click();
+await page.getByRole("link", { name: /^Entrée/ }).waitFor();
+check("mange : choix Entrée / Plat / Dessert", await page.getByRole("link", { name: /^Dessert/ }).count() === 1);
+await page.screenshot({ path: `${SHOTS}/12-mange-moment.png` });
+await page.getByRole("link", { name: /^Plat/ }).click();
+await page.getByRole("link", { name: /Toutes les idées/ }).waitFor();
+check("mange : types de plats + « Toutes les idées »", await page.getByRole("link", { name: /^Gratin/ }).count() === 1);
+await page.screenshot({ path: `${SHOTS}/13-mange-types.png` });
+await page.getByRole("link", { name: /^Gratin/ }).click();
+await page.getByTestId("meal-card").first().waitFor();
+const gratins = await page.getByTestId("meal-card").count();
+check("mange : plusieurs gratins affichés tout de suite", gratins > 1, `${gratins} recettes`);
+check("mange : carte avec temps, matériel et détail", await page.getByTestId("meal-card").first().getByText(/Il manque|Tu as tout|à vérifier/).count() > 0);
+await page.screenshot({ path: `${SHOTS}/14-mange-gratins.png`, fullPage: true });
+await page.getByRole("button", { name: /30 min max/ }).click();
+await page.getByRole("button", { name: "Four", exact: true }).click();
+await page.waitForTimeout(300);
+check("mange : filtres 30 min + four dans l'adresse", /t=30/.test(page.url()) && /m=four/.test(page.url()), page.url());
+const filteredCards = await page.getByTestId("meal-card").count();
+const emptyMsg = await page.getByText(/Aucune recette .* avec ces filtres/).count();
+check("mange : résultats mis à jour (ou message clair)", filteredCards > 0 || emptyMsg === 1, `${filteredCards} cartes, message=${emptyMsg}`);
+await page.screenshot({ path: `${SHOTS}/15-mange-filtres.png`, fullPage: true });
+await page.getByRole("link", { name: /Retour aux types de plat/ }).click();
+check("mange : retour aux types de plats", await visible(page.getByRole("link", { name: /^Gratin/ })));
+await page.getByRole("link", { name: "Repas" }).click();
+check("mange : retour au choix du moment", await visible(page.getByRole("link", { name: /^Entrée/ })));
+
 // 8. Hors connexion : après une première visite, l'appli doit s'ouvrir sans réseau.
 await page.goto(`${BASE}/courses/`);
 await page.evaluate(async () => { await navigator.serviceWorker.ready; });
