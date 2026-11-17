@@ -7,12 +7,14 @@ import { ToastProvider } from "@/components/Toast";
 import { ServiceWorker } from "@/components/ServiceWorker";
 import { StorageBanner } from "@/components/StorageBanner";
 
+const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 export const metadata: Metadata = {
   title: "Qu'est-ce qu'on mange ?",
   description: "Recettes avec ce que vous avez chez vous, et une liste de courses toujours sous la main.",
-  manifest: "/manifest.webmanifest",
+  manifest: `${base}/manifest.webmanifest`,
   appleWebApp: { capable: true, title: "On mange quoi", statusBarStyle: "default" },
-  icons: { icon: "/icon-192.png", apple: "/apple-touch-icon.png" },
+  icons: { icon: `${base}/icon-192.png`, apple: `${base}/apple-touch-icon.png` },
 };
 
 export const viewport: Viewport = {
