@@ -100,7 +100,10 @@ export async function saveInventory(put: InventoryItem[], del: string[], outbox?
   const inv = tx.objectStore("inventory");
   const ops: Promise<unknown>[] = [...put.map((i) => inv.put(i)), ...del.map((id) => inv.delete(id))];
   if (outbox !== undefined) ops.push(tx.objectStore("meta").put(outbox, "fridgeOutbox"));
-  await Promise.all([...ops, tx.done]);
+  // Valide tout de suite : un rechargement juste après (ex. « Annuler » puis retour au frigo) ne doit pas perdre l'écriture.
+  const done = Promise.all([...ops, tx.done]);
+  tx.commit?.();
+  await done;
 }
 
 export async function deleteInventory(ids: string[]) {
