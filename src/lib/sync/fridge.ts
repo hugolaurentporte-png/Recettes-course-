@@ -57,9 +57,11 @@ export function localChanges(
   const inventory = next.map((i) => {
     const old = before.get(keyOf(i));
     if (old === i) return i;
-    // Produit (re)mis dans le frigo (ex. « Annuler » après « J'ai cuisiné ») : daté de maintenant,
-    // pour passer après sa suppression éventuelle chez l'autre téléphone.
-    const floor = old ? old.updatedAt + 1 : now;
+    // Produit (re)mis dans le frigo (ex. « Annuler » après « J'ai cuisiné ») : il doit passer après
+    // sa suppression éventuelle, datée au plus max(maintenant, ancienne date + 1) (voir nextStamp).
+    // Sinon, si l'horloge de l'autre téléphone avance ou si tout se passe dans la même milliseconde,
+    // la suppression gagne à la synchronisation et le produit disparaît de nouveau.
+    const floor = old ? old.updatedAt + 1 : Math.max(now, i.updatedAt + 1) + 1;
     const fixed = i.updatedAt < floor ? { ...i, updatedAt: floor } : i;
     docs.push(stockDoc(fixed, by));
     return fixed;

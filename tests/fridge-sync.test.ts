@@ -78,9 +78,28 @@ describe("frigo partagé : modifications", () => {
     expect(c.inventory[0]!.updatedAt).toBe(901);
   });
 
-  it("un produit remis (Annuler) est daté de maintenant", () => {
+  it("un produit remis (Annuler) est daté juste après maintenant", () => {
     const c = localChanges([], [inv("pomme-de-terre", 10)], 5000);
-    expect(c.docs[0]!.updatedAt).toBe(5000);
+    expect(c.docs[0]!.updatedAt).toBe(5001);
+  });
+
+  it("« J'ai cuisiné » puis « Annuler » : le produit restauré n'est pas re-supprimé par la synchronisation", () => {
+    // Cas 1 : tout dans la même milliseconde. Cas 2 : produit daté par un téléphone dont l'horloge avance.
+    for (const [stamp, tCook, tUndo] of [[1000, 2000, 2000], [3000, 2000, 2500]] as const) {
+      const pdt = inv("pomme-de-terre", stamp, { quantity: 500, unit: "g" });
+      const server = new Map<string, StockDoc>([[pdt.ingredientId, stockDoc(pdt)]]);
+      const push = (docs: StockDoc[]) => docs.forEach((d) => {
+        const cur = server.get(d.id);
+        if (!cur || d.updatedAt > cur.updatedAt) server.set(d.id, d);
+      });
+      const cooked = localChanges([pdt], [], tCook); // produit terminé : retiré
+      push(cooked.docs);
+      const undone = localChanges(cooked.inventory, [pdt], tUndo); // « Annuler » remet l'ancienne version
+      push(undone.docs);
+      const after = applyRemote(undone.inventory, [...server.values()], new Map(), newId) ?? undone.inventory;
+      expect(after.map((i) => i.ingredientId)).toEqual(["pomme-de-terre"]);
+      expect(server.get("pomme-de-terre")!.deletedAt).toBeNull();
+    }
   });
 });
 

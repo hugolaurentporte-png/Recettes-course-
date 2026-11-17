@@ -118,6 +118,23 @@ await page.screenshot({ path: `${SHOTS}/7-recettes.png` });
 // Ligne du frigo (et non la pastille « Mes indispensables » du même nom).
 const pdtLine = () => page.locator("li button", { hasText: /^Pommes de terre/ });
 const pdtRow = async () => (await visible(pdtLine(), 3000)) ? pdtLine().first().innerText() : "";
+/** Attend que le frigo enregistré (IndexedDB) soit dans l'état voulu avant de recharger la page. */
+async function savedPotatoes(expected) {
+  for (let t = 0; t < 50; t++) {
+    const q = await page.evaluate(() => new Promise((resolve) => {
+      const req = indexedDB.open("recettes-courses");
+      req.onsuccess = () => {
+        const get = req.result.transaction("inventory").objectStore("inventory").getAll();
+        get.onsuccess = () => { const p = get.result.find((i) => i.ingredientId === "pomme-de-terre"); resolve(p ? p.quantity : "absent"); req.result.close(); };
+        get.onerror = () => resolve("erreur");
+      };
+      req.onerror = () => resolve("erreur");
+    }));
+    if (expected(q)) return true;
+    await page.waitForTimeout(100);
+  }
+  return false;
+}
 await page.goto(`${BASE}/recettes/tm-soupe-poireaux/`);
 await page.getByRole("button", { name: "J'ai cuisiné" }).click();
 const panel = page.getByRole("dialog", { name: "Tu as fini quelque chose ?" });
@@ -131,6 +148,7 @@ const nothing = panel.getByRole("button", { name: "Rien de terminé" });
 await nothing.evaluate((b) => { b.click(); b.click(); });
 check("confirmation avec « Annuler »", await visible(page.getByRole("button", { name: "Annuler" })));
 await page.screenshot({ path: `${SHOTS}/9-confirmation.png` });
+await savedPotatoes((q) => q === 100);
 await page.goto(`${BASE}/frigo/`);
 check("500 g − 400 g, double appui compté une fois → environ 100 g", /100 g/.test(await pdtRow()), await pdtRow());
 
@@ -139,7 +157,9 @@ await page.goto(`${BASE}/recettes/tm-soupe-poireaux/`);
 await page.getByRole("button", { name: "J'ai cuisiné" }).click();
 await panel.getByRole("checkbox", { name: /Pommes de terre/ }).check();
 await panel.getByRole("button", { name: /Retirer les produits terminés/ }).click();
+await savedPotatoes((q) => q === "absent");
 await page.getByRole("button", { name: "Annuler" }).click();
+check("« Annuler » enregistré dans le téléphone", await savedPotatoes((q) => q === 100));
 await page.goto(`${BASE}/frigo/`);
 check("« Annuler » remet les pommes de terre", /100 g/.test(await pdtRow()), await pdtRow());
 
@@ -148,6 +168,7 @@ await page.goto(`${BASE}/recettes/tm-soupe-poireaux/`);
 await page.getByRole("button", { name: "J'ai cuisiné" }).click();
 await panel.getByRole("checkbox", { name: /Pommes de terre/ }).check();
 await panel.getByRole("button", { name: /Retirer les produits terminés/ }).click();
+await savedPotatoes((q) => q === "absent");
 await page.goto(`${BASE}/frigo/`);
 await page.getByRole("button", { name: /^✓ Carottes/ }).or(page.locator("li button", { hasText: /^Carottes/ })).first().waitFor();
 check("produit terminé retiré du frigo", await pdtLine().count() === 0);
