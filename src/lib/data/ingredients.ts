@@ -1,0 +1,205 @@
+import type { Ingredient, IngredientCategory, Unit } from "../domain/types";
+import { normalizeText } from "../domain/normalize";
+
+/**
+ * Catalogue d'ingrédients.
+ * Format compact : [id, nom, catégorie, unité par défaut, alias, options]
+ * options : "s" = indispensable (sel, huile…), "v" = fruit/légume de saison.
+ * pieceGrams n'est renseigné que pour des équivalences usuelles documentées
+ * (table Ciqual / usages de la restauration collective), et sert uniquement si la recette ou le stock le demande.
+ */
+type Row = [string, string, IngredientCategory, Unit, string[]?, string?, number?];
+
+const ROWS: Row[] = [
+  // Légumes
+  ["pomme-de-terre", "Pommes de terre", "legumes", "g", ["patate", "patates", "pdt"], "v"],
+  ["carotte", "Carottes", "legumes", "g", [], "v"],
+  ["oignon", "Oignons", "legumes", "piece", ["oignon jaune"], "v"],
+  ["oignon-rouge", "Oignons rouges", "legumes", "piece", [], "v"],
+  ["echalote", "Échalotes", "legumes", "piece", [], "v"],
+  ["ail", "Ail", "legumes", "piece", ["gousse d'ail", "gousses d'ail"], ""],
+  ["tomate", "Tomates", "legumes", "piece", [], "v"],
+  ["tomate-cerise", "Tomates cerises", "legumes", "g", [], "v"],
+  ["courgette", "Courgettes", "legumes", "piece", [], "v"],
+  ["aubergine", "Aubergines", "legumes", "piece", [], "v"],
+  ["poivron", "Poivrons", "legumes", "piece", ["poivron rouge", "poivron vert"], "v"],
+  ["champignon", "Champignons", "legumes", "g", ["champignons de paris"], "v"],
+  ["poireau", "Poireaux", "legumes", "piece", [], "v"],
+  ["brocoli", "Brocoli", "legumes", "g", ["brocolis"], "v"],
+  ["chou-fleur", "Chou-fleur", "legumes", "piece", [], "v"],
+  ["epinard", "Épinards", "legumes", "g", ["pousses d'epinard"], "v"],
+  ["haricot-vert", "Haricots verts", "legumes", "g", [], "v"],
+  ["petit-pois", "Petits pois", "legumes", "g", [], "v"],
+  ["concombre", "Concombre", "legumes", "piece", [], "v"],
+  ["salade", "Salade verte", "legumes", "piece", ["laitue", "batavia", "salade"], "v"],
+  ["potiron", "Potiron", "legumes", "g", ["citrouille", "courge"], "v"],
+  ["butternut", "Courge butternut", "legumes", "g", ["butternut"], "v"],
+  ["patate-douce", "Patates douces", "legumes", "g", [], "v"],
+  ["navet", "Navets", "legumes", "g", [], "v"],
+  ["celeri-rave", "Céleri-rave", "legumes", "g", [], "v"],
+  ["celeri-branche", "Céleri branche", "legumes", "piece", [], "v"],
+  ["endive", "Endives", "legumes", "piece", ["chicon"], "v"],
+  ["chou", "Chou vert", "legumes", "piece", ["chou frise"], "v"],
+  ["radis", "Radis", "legumes", "piece", ["botte de radis"], "v"],
+  ["betterave", "Betteraves cuites", "legumes", "g", [], "v"],
+  ["avocat", "Avocats", "legumes", "piece", [], "v"],
+  ["mais", "Maïs", "conserves", "g", ["mais en boite"], ""],
+  ["persil", "Persil", "legumes", "piece", ["bouquet de persil"], ""],
+  ["basilic", "Basilic", "legumes", "piece", [], ""],
+  ["ciboulette", "Ciboulette", "legumes", "piece", [], ""],
+  ["coriandre", "Coriandre", "legumes", "piece", [], ""],
+  ["thym", "Thym", "condiments", "pincee", [], "s"],
+  ["laurier", "Laurier", "condiments", "piece", ["feuille de laurier"], "s"],
+  ["gingembre", "Gingembre", "legumes", "g", [], ""],
+  // Fruits
+  ["pomme", "Pommes", "fruits", "piece", [], "v"],
+  ["poire", "Poires", "fruits", "piece", [], "v"],
+  ["banane", "Bananes", "fruits", "piece", [], ""],
+  ["citron", "Citrons", "fruits", "piece", ["citron jaune"], ""],
+  ["orange", "Oranges", "fruits", "piece", [], "v"],
+  ["fraise", "Fraises", "fruits", "g", [], "v"],
+  ["framboise", "Framboises", "fruits", "g", [], "v"],
+  ["peche", "Pêches", "fruits", "piece", [], "v"],
+  ["abricot", "Abricots", "fruits", "piece", [], "v"],
+  ["prune", "Prunes", "fruits", "g", ["mirabelles", "quetsches"], "v"],
+  ["raisin", "Raisin", "fruits", "g", [], "v"],
+  ["clementine", "Clémentines", "fruits", "piece", ["mandarines"], "v"],
+  ["kiwi", "Kiwis", "fruits", "piece", [], "v"],
+  ["melon", "Melon", "fruits", "piece", [], "v"],
+  ["cerise", "Cerises", "fruits", "g", [], "v"],
+  ["rhubarbe", "Rhubarbe", "fruits", "g", [], "v"],
+  // Viandes
+  ["poulet", "Blancs de poulet", "viandes", "g", ["filet de poulet", "escalope de poulet", "blanc de poulet"], ""],
+  ["cuisse-poulet", "Cuisses de poulet", "viandes", "piece", ["pilons"], ""],
+  ["boeuf-hache", "Bœuf haché", "viandes", "g", ["viande hachee", "steak hache"], ""],
+  ["boeuf-braiser", "Bœuf à braiser", "viandes", "g", ["paleron", "macreuse", "boeuf bourguignon"], ""],
+  ["porc-filet", "Filet mignon de porc", "viandes", "g", ["filet mignon"], ""],
+  ["cote-porc", "Côtes de porc", "viandes", "piece", [], ""],
+  ["lardon", "Lardons", "viandes", "g", ["lardons fumes", "allumettes"], ""],
+  ["jambon", "Jambon blanc", "viandes", "piece", ["tranche de jambon"], ""],
+  ["jambon-cru", "Jambon cru", "viandes", "piece", [], ""],
+  ["saucisse", "Saucisses", "viandes", "piece", ["saucisses de toulouse", "chipolatas"], ""],
+  ["chorizo", "Chorizo", "viandes", "g", [], ""],
+  ["dinde", "Escalopes de dinde", "viandes", "g", ["dinde"], ""],
+  ["agneau", "Épaule d'agneau", "viandes", "g", ["agneau"], ""],
+  // Poissons
+  ["saumon", "Pavés de saumon", "poissons", "piece", ["saumon"], ""],
+  ["cabillaud", "Dos de cabillaud", "poissons", "g", ["cabillaud", "colin", "lieu"], ""],
+  ["thon-boite", "Thon en boîte", "conserves", "g", ["thon"], ""],
+  ["crevette", "Crevettes", "poissons", "g", [], ""],
+  ["sardine-boite", "Sardines en boîte", "conserves", "piece", [], ""],
+  ["moule", "Moules", "poissons", "kg", [], ""],
+  // Laitiers & œufs
+  ["oeuf", "Œufs", "oeufs", "piece", ["oeuf"], ""],
+  ["lait", "Lait", "laitiers", "ml", ["lait demi ecreme"], ""],
+  ["beurre", "Beurre", "laitiers", "g", [], "s"],
+  ["creme", "Crème fraîche", "laitiers", "ml", ["creme fraiche", "creme liquide", "creme epaisse"], ""],
+  ["fromage-rape", "Fromage râpé", "laitiers", "g", ["emmental rape", "gruyere rape"], ""],
+  ["parmesan", "Parmesan", "laitiers", "g", [], ""],
+  ["mozzarella", "Mozzarella", "laitiers", "piece", [], ""],
+  ["chevre", "Fromage de chèvre", "laitiers", "g", ["buche de chevre", "chevre"], ""],
+  ["feta", "Feta", "laitiers", "g", [], ""],
+  ["reblochon", "Reblochon", "laitiers", "piece", [], ""],
+  ["comte", "Comté", "laitiers", "g", [], ""],
+  ["yaourt", "Yaourts nature", "laitiers", "piece", ["yaourt"], ""],
+  ["ricotta", "Ricotta", "laitiers", "g", [], ""],
+  ["pate-feuilletee", "Pâte feuilletée", "laitiers", "piece", [], ""],
+  ["pate-brisee", "Pâte brisée", "laitiers", "piece", [], ""],
+  // Féculents
+  ["riz", "Riz", "feculents", "g", ["riz basmati", "riz long"], ""],
+  ["riz-arborio", "Riz arborio", "feculents", "g", ["riz a risotto"], ""],
+  ["pates", "Pâtes", "feculents", "g", ["spaghetti", "penne", "coquillettes", "tagliatelles", "fusilli"], ""],
+  ["lasagne", "Feuilles de lasagne", "feculents", "g", [], ""],
+  ["semoule", "Semoule", "feculents", "g", ["couscous"], ""],
+  ["lentille", "Lentilles vertes", "feculents", "g", ["lentilles"], ""],
+  ["lentille-corail", "Lentilles corail", "feculents", "g", [], ""],
+  ["pois-chiche", "Pois chiches", "conserves", "g", [], ""],
+  ["haricot-rouge", "Haricots rouges", "conserves", "g", [], ""],
+  ["pain", "Pain", "feculents", "piece", ["baguette"], ""],
+  ["pain-mie", "Pain de mie", "feculents", "piece", ["tranche de pain de mie"], ""],
+  ["tortilla", "Tortillas de blé", "feculents", "piece", ["wraps"], ""],
+  ["quinoa", "Quinoa", "feculents", "g", [], ""],
+  ["chapelure", "Chapelure", "epicerie", "g", [], ""],
+  ["gnocchi", "Gnocchis", "feculents", "g", [], ""],
+  // Conserves & épicerie
+  ["tomate-concassee", "Tomates concassées", "conserves", "g", ["pulpe de tomate", "tomates pelees"], ""],
+  ["concentre-tomate", "Concentré de tomate", "conserves", "cs", [], ""],
+  ["coulis-tomate", "Coulis de tomate", "conserves", "ml", ["passata", "sauce tomate"], ""],
+  ["lait-coco", "Lait de coco", "conserves", "ml", [], ""],
+  ["bouillon", "Bouillon cube", "epicerie", "piece", ["cube de bouillon", "bouillon de volaille", "bouillon de legumes"], "s"],
+  ["olive", "Olives", "conserves", "g", [], ""],
+  ["farine", "Farine", "epicerie", "g", [], "s"],
+  ["sucre", "Sucre", "epicerie", "g", ["sucre en poudre"], "s"],
+  ["sucre-vanille", "Sucre vanillé", "epicerie", "piece", ["sachet de sucre vanille"], ""],
+  ["levure", "Levure chimique", "epicerie", "piece", ["sachet de levure"], ""],
+  ["chocolat", "Chocolat noir", "epicerie", "g", ["chocolat patissier"], ""],
+  ["miel", "Miel", "epicerie", "cs", [], ""],
+  ["vin-rouge", "Vin rouge", "boissons", "ml", [], ""],
+  ["vin-blanc", "Vin blanc", "boissons", "ml", [], ""],
+  ["noix", "Cerneaux de noix", "epicerie", "g", ["noix"], ""],
+  ["pignon", "Pignons de pin", "epicerie", "g", [], ""],
+  ["amande-poudre", "Poudre d'amande", "epicerie", "g", [], ""],
+  ["flocon-avoine", "Flocons d'avoine", "epicerie", "g", [], ""],
+  ["pesto", "Pesto", "epicerie", "cs", [], ""],
+  // Condiments & indispensables
+  ["sel", "Sel", "condiments", "pincee", [], "s"],
+  ["poivre", "Poivre", "condiments", "pincee", [], "s"],
+  ["huile-olive", "Huile d'olive", "condiments", "cs", ["huile"], "s"],
+  ["huile-neutre", "Huile neutre", "condiments", "cs", ["huile de tournesol", "huile de colza"], "s"],
+  ["vinaigre", "Vinaigre", "condiments", "cs", ["vinaigre de vin", "vinaigre balsamique"], "s"],
+  ["moutarde", "Moutarde", "condiments", "cs", [], "s"],
+  ["sauce-soja", "Sauce soja", "condiments", "cs", [], ""],
+  ["curry", "Curry en poudre", "condiments", "cc", ["curry"], ""],
+  ["cumin", "Cumin", "condiments", "cc", [], ""],
+  ["paprika", "Paprika", "condiments", "cc", [], ""],
+  ["muscade", "Noix de muscade", "condiments", "pincee", ["muscade"], ""],
+  ["herbes-provence", "Herbes de Provence", "condiments", "cc", [], "s"],
+  ["ras-el-hanout", "Ras el hanout", "condiments", "cc", [], ""],
+  // Surgelés
+  ["petit-pois-surgele", "Petits pois surgelés", "surgeles", "g", [], ""],
+  ["epinard-surgele", "Épinards surgelés", "surgeles", "g", [], ""],
+];
+
+export const INGREDIENTS: Ingredient[] = ROWS.map(([id, name, category, defaultUnit, aliases, opts, pieceGrams]) => ({
+  id,
+  name,
+  normalizedName: normalizeText(name),
+  category,
+  defaultUnit,
+  aliases: (aliases ?? []).map(normalizeText),
+  staple: opts?.includes("s") ?? false,
+  seasonal: opts?.includes("v") ?? false,
+  ...(pieceGrams ? { pieceGrams } : {}),
+}));
+
+export const INGREDIENTS_BY_ID: ReadonlyMap<string, Ingredient> = new Map(INGREDIENTS.map((i) => [i.id, i]));
+
+export function getIngredient(id: string): Ingredient | undefined {
+  return INGREDIENTS_BY_ID.get(id);
+}
+
+export const CATEGORY_LABELS: Record<IngredientCategory, string> = {
+  legumes: "Légumes",
+  fruits: "Fruits",
+  viandes: "Viandes",
+  poissons: "Poissons",
+  laitiers: "Produits laitiers",
+  oeufs: "Œufs",
+  feculents: "Féculents",
+  conserves: "Conserves",
+  epicerie: "Épicerie",
+  condiments: "Condiments",
+  surgeles: "Surgelés",
+  boissons: "Boissons",
+};
+
+export const CATEGORY_ORDER: IngredientCategory[] = [
+  "legumes", "fruits", "viandes", "poissons", "oeufs", "laitiers",
+  "feculents", "conserves", "epicerie", "condiments", "surgeles", "boissons",
+];
+
+/** Ingrédients proposés en un clic dans Mon frigo. */
+export const COMMON_INGREDIENT_IDS = [
+  "oeuf", "pomme-de-terre", "oignon", "carotte", "tomate", "pates", "riz", "lardon",
+  "fromage-rape", "creme", "lait", "courgette", "champignon", "poulet", "ail", "jambon",
+];
