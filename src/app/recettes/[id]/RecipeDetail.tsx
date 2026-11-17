@@ -225,7 +225,7 @@ export function RecipeDetail({ id }: { id: string }) {
 
       <Sheet open={planning} onClose={() => setPlanning(false)} title="Quand ?">
         {planning && (
-          <PlanPicker onPick={(date, meal) => {
+          <PlanPicker recipeId={recipe.id} title={recipe.title} onPick={(date, meal) => {
             store.planRecipe(recipe.id, date, meal, servings);
             setPlanning(false);
             toast(`Ajouté au planning : ${dayLabel(date, "").toLowerCase()}, ${MEAL_LABELS[meal].toLowerCase()}`,
@@ -237,23 +237,47 @@ export function RecipeDetail({ id }: { id: string }) {
   );
 }
 
-/** Choix du jour et du repas sur les 10 prochains jours. */
-function PlanPicker({ onPick }: { onPick: (date: string, meal: Meal) => void }) {
+/** Choix du jour et du repas sur les 10 prochains jours ; demande avant de remplacer un plat déjà prévu. */
+function PlanPicker({ recipeId, title, onPick }: { recipeId: string; title: string; onPick: (date: string, meal: Meal) => void }) {
   const { plan } = useStore();
   const today = toDateKey(new Date());
   const days = [...weekDays(new Date()), ...weekDays(new Date(), 1)].filter((d) => d >= today).slice(0, 10);
-  const taken = new Set(plan.map((e) => `${e.date}|${e.meal}`));
+  const [confirm, setConfirm] = useState<{ date: string; meal: Meal } | null>(null);
+  const titleAt = (d: string, m: Meal) => {
+    const e = plannedAt(plan, d, m);
+    return e && e.recipeId !== recipeId ? RECIPES_BY_ID.get(e.recipeId)?.title ?? "un autre plat" : null;
+  };
+
+  if (confirm) {
+    const current = titleAt(confirm.date, confirm.meal) ?? "un autre plat";
+    return (
+      <div className="space-y-3">
+        <p className="rounded-2xl bg-warm-50 p-4">
+          {dayLabel(confirm.date, today)}, {MEAL_LABELS[confirm.meal].toLowerCase()} : <strong>{current}</strong> est déjà prévu.
+        </p>
+        <p className="font-semibold">Remplacer le plat prévu ?</p>
+        <button type="button" className="btn-primary w-full" onClick={() => onPick(confirm.date, confirm.meal)}>
+          Remplacer par {title}
+        </button>
+        <button type="button" className="btn-secondary w-full" onClick={() => setConfirm(null)}>Garder {current}</button>
+      </div>
+    );
+  }
+
   return (
     <ul className="max-h-[60vh] divide-y divide-stone-100 overflow-y-auto">
       {days.map((d) => (
         <li key={d} className="flex items-center gap-2 py-2">
           <span className="flex-1 text-sm font-medium">{dayLabel(d, today)}</span>
-          {MEALS.map((m) => (
-            <button key={m} type="button" className="chip" onClick={() => onPick(d, m)}
-              aria-label={`${dayLabel(d, today)}, ${MEAL_LABELS[m]}${taken.has(`${d}|${m}`) ? " (remplace le repas prévu)" : ""}`}>
-              {MEAL_LABELS[m]}{taken.has(`${d}|${m}`) ? " •" : ""}
-            </button>
-          ))}
+          {MEALS.map((m) => {
+            const taken = titleAt(d, m);
+            return (
+              <button key={m} type="button" className="chip" onClick={() => (taken ? setConfirm({ date: d, meal: m }) : onPick(d, m))}
+                aria-label={`${dayLabel(d, today)}, ${MEAL_LABELS[m]}${taken ? ` (déjà prévu : ${taken})` : ""}`}>
+                {MEAL_LABELS[m]}{taken ? " •" : ""}
+              </button>
+            );
+          })}
         </li>
       ))}
     </ul>
