@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node scripts/gen-sw.mjs",
+    "build": "node scripts/copy-pdf-worker.mjs && next build && node scripts/gen-sw.mjs",
     "start": "npx --yes serve@14.2.4 out -l 3000",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
@@ -14,6 +14,7 @@
   "dependencies": {
     "idb": "8.0.4",
     "next": "15.5.29",
+    "pdfjs-dist": "6.4.299",
     "react": "19.1.1",
     "react-dom": "19.1.1"
   },
