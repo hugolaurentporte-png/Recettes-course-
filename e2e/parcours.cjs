@@ -181,6 +181,26 @@ check("mange : retour aux types de plats", await visible(page.getByRole("link", 
 await page.getByRole("link", { name: "Repas" }).click();
 check("mange : retour au choix du moment", await visible(page.getByRole("link", { name: /^Entrée/ })));
 
+// 7 quater. Tirage au sort et choix du matériel (Thermomix non coché dans Mon frigo).
+await page.getByRole("button", { name: /Tirer un plat au sort/ }).click();
+check("mange : un plat tiré au sort", await visible(page.getByTestId("random-pick")));
+const first = await page.getByTestId("random-pick").locator("h3").innerText();
+await page.getByRole("button", { name: /Une autre/ }).click();
+await page.waitForTimeout(200);
+const second = await page.getByTestId("random-pick").locator("h3").innerText();
+check("mange : « Une autre » tire une autre recette", first !== second, `${first} → ${second}`);
+await page.screenshot({ path: `${SHOTS}/16-mange-hasard.png` });
+await page.getByRole("link", { name: /^Plat/ }).click();
+await page.getByRole("button", { name: "Thermomix", exact: true }).click();
+await page.waitForURL(/m=thermomix/);
+await page.waitForTimeout(200);
+await page.screenshot({ path: `${SHOTS}/17-mange-thermomix.png` });
+await page.getByRole("link", { name: /Toutes les idées/ }).click();
+await page.getByTestId("meal-card").first().waitFor();
+const tmCards = await page.getByTestId("meal-card").count();
+const tmOk = await page.getByTestId("meal-card").filter({ hasText: "Thermomix" }).count();
+check("mange : Thermomix choisi → recettes Thermomix", tmCards > 0 && tmOk === tmCards, `${tmOk}/${tmCards}`);
+
 // 8. Hors connexion : après une première visite, l'appli doit s'ouvrir sans réseau.
 await page.goto(`${BASE}/courses/`);
 await page.evaluate(async () => { await navigator.serviceWorker.ready; });
