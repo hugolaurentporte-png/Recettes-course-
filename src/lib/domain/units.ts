@@ -81,9 +81,21 @@ export function humanize(amount: Amount): Amount {
   if (base.unit === "g" && base.value >= 1000) return { value: round(base.value / 1000), unit: "kg" };
   if (base.unit === "ml" && base.value >= 1000) return { value: round(base.value / 1000), unit: "l" };
   if (amount.unit === "cl") return base;
-  if (base.unit === "cc" && amount.unit === "cs" && base.value % 3 === 0) return amount;
+  // Des cuillères à soupe restent en cuillères à soupe, même ¾ (et non « 2,25 c. à café »).
+  if (amount.unit === "cs") return amount;
   if (base.unit === "cc" && base.value >= 3 && base.value % 3 === 0) return { value: base.value / 3, unit: "cs" };
   return base;
+}
+
+const FRACTIONS: [number, string][] = [[0.25, "¼"], [0.5, "½"], [0.75, "¾"]];
+
+/** « ½ », « 1 ½ », sinon null : réservé aux pièces et aux cuillères, où l'on parle en fractions. */
+function asFraction(n: number): string | null {
+  const whole = Math.floor(n);
+  const rest = Math.round((n - whole) * 100) / 100;
+  const f = FRACTIONS.find(([v]) => v === rest);
+  if (!f) return null;
+  return whole ? `${whole} ${f[1]}` : f[1];
 }
 
 export function formatNumber(n: number): string {
@@ -95,7 +107,14 @@ export function formatAmount(amount: Amount): string {
   const h = humanize(amount);
   const info = UNITS[h.unit];
   const label = h.value > 1 ? info.plural : info.label;
-  return `${formatNumber(h.value)} ${label}`;
+  const fraction = h.unit === "piece" || h.unit === "cs" || h.unit === "cc" ? asFraction(h.value) : null;
+  return `${fraction ?? formatNumber(h.value)} ${label}`;
+}
+
+/** Pour la liste des ingrédients d'une recette : « 1 ½ oignons » plutôt que « 1 ½ pièces oignons ». */
+export function formatRecipeAmount(amount: Amount): string {
+  if (amount.unit !== "piece") return formatAmount(amount);
+  return formatAmount(amount).replace(/ pièces?$/, "");
 }
 
 /**
@@ -119,9 +138,15 @@ export function roundForCooking(value: number, unit: Unit): number {
     return Math.max(0.5, Math.round(value * 2) / 2);
   }
   if (unit === "g" || unit === "ml") {
+    if (value >= 1000) return Math.round(value / 50) * 50;
     if (value >= 100) return Math.round(value / 5) * 5;
     return Math.max(1, Math.round(value));
   }
+  if (unit === "cs" || unit === "cc") {
+    // Au quart de cuillère : « ¾ c. à soupe » plutôt que « 0,67 c. à soupe ».
+    return Math.max(0.25, Math.round(value * 4) / 4);
+  }
+  if (unit === "pincee") return Math.max(1, Math.round(value));
   return Math.round(value * 100) / 100;
 }
 
