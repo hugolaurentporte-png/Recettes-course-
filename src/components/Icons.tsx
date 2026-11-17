@@ -23,6 +23,9 @@ export const BookIcon = (p: P) => (
 export const CartIcon = (p: P) => (
   <Base {...p}><circle cx="9" cy="20" r="1.5" /><circle cx="18" cy="20" r="1.5" /><path d="M2 3h3l2.5 12h11.5l2-8H6.2" /></Base>
 );
+export const CalendarIcon = (p: P) => (
+  <Base {...p}><rect x="3" y="4.5" width="18" height="16.5" rx="2" /><path d="M3 9.5h18M8 2.5v4M16 2.5v4" /></Base>
+);
 export const PlusIcon = (p: P) => <Base {...p}><path d="M12 5v14M5 12h14" /></Base>;
 export const CheckIcon = (p: P) => <Base {...p}><path d="m5 12.5 4.5 4.5L19 7.5" /></Base>;
 export const XIcon = (p: P) => <Base {...p}><path d="M6 6l12 12M18 6 6 18" /></Base>;
