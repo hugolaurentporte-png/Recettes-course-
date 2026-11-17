@@ -317,6 +317,7 @@ export function suggest(
   items: readonly ShoppingItem[],
   catalog: readonly Ingredient[],
   limit = 8,
+  products: readonly string[] = [],
 ): { name: string; key: string; frequent: boolean }[] {
   const q = itemKey(query);
   const inList = new Set(activeItems(items).filter((i) => !i.checked).map((i) => i.key));
@@ -336,6 +337,14 @@ export function suggest(
       const key = keyForIngredient(ing.id);
       if (inList.has(key) || seen.has(key) || !matches(ing.name, ing.aliases)) continue;
       out.push({ name: ing.name, key, frequent: false });
+      seen.add(key);
+    }
+    for (const name of products) {
+      if (!matches(name)) continue;
+      const ing = matchIngredient(name, catalog);
+      const key = ing ? keyForIngredient(ing.id) : itemKey(name);
+      if (inList.has(key) || seen.has(key)) continue;
+      out.push({ name, key, frequent: false });
       seen.add(key);
     }
   }
