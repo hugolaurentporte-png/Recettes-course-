@@ -96,3 +96,10 @@ describe("phrases des cartes", () => {
     expect(s.lines).toEqual([{ kind: "verify", text: "Quantité de pommes de terre à vérifier" }]);
   });
 });
+
+describe("recettes importées", () => {
+  it("chaque plat a au moins un type (sinon il n'apparaît que dans « Toutes les idées »)", () => {
+    const sansType = RECIPES.filter((r) => r.published && mealClass(r).plat?.length === 0).map((r) => r.id);
+    expect(sansType).toEqual([]);
+  });
+});

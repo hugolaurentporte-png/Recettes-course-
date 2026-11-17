@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useMemo } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Equipment } from "@/lib/domain/types";
 import { EMPTY_FILTERS, recipeModes, type ScoredRecipe, type TimeFilter } from "@/lib/domain/recommend";
@@ -15,6 +15,7 @@ const TIMES: TimeFilter[] = [15, 30, 45];
 /** Ordre d'affichage du matériel. */
 const MODES: Equipment[] = ["thermomix", "four", "cocotte", "poele", "casserole", "airfryer", "sans-cuisson"];
 const ALL = "tout";
+const PAGE = 30;
 
 /** Lien vers une étape du parcours (?c=plat&k=gratin…). */
 function stepHref(c?: Course, k?: string) {
@@ -133,6 +134,9 @@ function Results({ course, type }: { course: Course; type: string | null }) {
   }
 
   const hasFilters = maxMinutes !== null || modes.length > 0;
+  // Le catalogue compte des centaines de plats : on affiche par paquets pour rester fluide sur téléphone.
+  const [limit, setLimit] = useState(PAGE);
+  useEffect(() => setLimit(PAGE), [maxMinutes, modes]);
   const readyCount = filtered.filter((s) => s.availability.allAvailable).length;
   // Rien ne correspond : on montre les recettes les plus proches (même matériel, temps élargi).
   const nearest = filtered.length === 0 && hasFilters ? nearestRecipes(base, modes) : [];
@@ -193,7 +197,14 @@ function Results({ course, type }: { course: Course; type: string | null }) {
           )}
         </>
       ) : (
-        <div className="space-y-3">{filtered.map((s) => <MealCard key={s.recipe.id} s={s} />)}</div>
+        <>
+          <div className="space-y-3">{filtered.slice(0, limit).map((s) => <MealCard key={s.recipe.id} s={s} />)}</div>
+          {filtered.length > limit && (
+            <button type="button" className="btn-secondary mt-4 w-full" onClick={() => setLimit(limit + PAGE)}>
+              Voir plus d&apos;idées ({filtered.length - limit} autres)
+            </button>
+          )}
+        </>
       )}
     </>
   );

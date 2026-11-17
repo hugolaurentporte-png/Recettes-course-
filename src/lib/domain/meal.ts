@@ -189,12 +189,15 @@ function inferClass(recipe: Recipe): MealClass {
   const plat: string[] = [];
   if (tags.has("gratin")) plat.push("gratin");
   if (tags.has("pâtes")) plat.push("pates");
-  if (tags.has("mijoté") || tags.has("cocotte")) plat.push("mijote");
+  if (tags.has("mijoté") || tags.has("cocotte") || tags.has("curry")) plat.push("mijote");
+  if (tags.has("poêle")) plat.push("poelee");
   if (tags.has("tarte")) plat.push("quiche");
   if (tags.has("poisson")) plat.push("poisson");
   if (tags.has("riz")) plat.push("riz");
   if (tags.has("œufs")) plat.push("oeufs");
   if (tags.has("accompagnement")) plat.push("accompagnement");
+  // Plat au four qui n'est ni un gratin ni une tarte : rôti / plaque au four.
+  if (tags.has("four") && !tags.has("gratin") && !tags.has("tarte")) plat.push("roti");
   return { plat };
 }
 
