@@ -12,7 +12,9 @@ import { EQUIPMENT_LABELS, formatMinutes } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import { useToast } from "@/components/Toast";
 import { Visual } from "@/components/RecipeCard";
-import { BackIcon, CartIcon, MinusIcon, PlusIcon } from "@/components/Icons";
+import { BackIcon, CalendarIcon, CartIcon, MinusIcon, PlusIcon } from "@/components/Icons";
+import { Sheet } from "@/components/Sheet";
+import { MEALS, MEAL_LABELS, dayLabel, toDateKey, weekDays, type Meal } from "@/lib/domain/plan";
 
 const STATUS_STYLE: Record<LineStatus, { icon: string; cls: string; label: string }> = {
   ok: { icon: "✓", cls: "text-brand-700", label: "Disponible" },
@@ -27,6 +29,7 @@ export function RecipeDetail({ id }: { id: string }) {
   const toast = useToast();
   const router = useRouter();
   const [servings, setServings] = useState(recipe.servings);
+  const [planning, setPlanning] = useState(false);
   const a = useMemo(
     () => recipeAvailability(recipe, store.inventoryMap, getIngredient, servings),
     [recipe, store.inventoryMap, servings],
@@ -112,6 +115,10 @@ export function RecipeDetail({ id }: { id: string }) {
           <p className="mt-4 rounded-2xl bg-brand-50 p-4 text-center font-semibold text-brand-700">✓ Vous avez tout ce qu&apos;il faut</p>
         )}
 
+        <button type="button" className="btn-secondary mt-3 w-full" onClick={() => setPlanning(true)}>
+          <CalendarIcon width={20} /> Ajouter au planning
+        </button>
+
         <h2 className="mt-8 text-lg font-bold">Matériel</h2>
         <div className="mt-2 flex flex-wrap gap-2">
           {recipe.equipment.map((e) => (
@@ -129,6 +136,40 @@ export function RecipeDetail({ id }: { id: string }) {
           ))}
         </ol>
       </div>
+
+      <Sheet open={planning} onClose={() => setPlanning(false)} title="Quand ?">
+        {planning && (
+          <PlanPicker onPick={(date, meal) => {
+            store.planRecipe(recipe.id, date, meal, servings);
+            setPlanning(false);
+            toast(`Ajouté au planning : ${dayLabel(date, "").toLowerCase()}, ${MEAL_LABELS[meal].toLowerCase()}`,
+              { label: "Voir", run: () => router.push("/planning/") });
+          }} />
+        )}
+      </Sheet>
     </div>
+  );
+}
+
+/** Choix du jour et du repas sur les 10 prochains jours. */
+function PlanPicker({ onPick }: { onPick: (date: string, meal: Meal) => void }) {
+  const { plan } = useStore();
+  const today = toDateKey(new Date());
+  const days = [...weekDays(new Date()), ...weekDays(new Date(), 1)].filter((d) => d >= today).slice(0, 10);
+  const taken = new Set(plan.map((e) => `${e.date}|${e.meal}`));
+  return (
+    <ul className="max-h-[60vh] divide-y divide-stone-100 overflow-y-auto">
+      {days.map((d) => (
+        <li key={d} className="flex items-center gap-2 py-2">
+          <span className="flex-1 text-sm font-medium">{dayLabel(d, today)}</span>
+          {MEALS.map((m) => (
+            <button key={m} type="button" className="chip" onClick={() => onPick(d, m)}
+              aria-label={`${dayLabel(d, today)}, ${MEAL_LABELS[m]}${taken.has(`${d}|${m}`) ? " (remplace le repas prévu)" : ""}`}>
+              {MEAL_LABELS[m]}{taken.has(`${d}|${m}`) ? " •" : ""}
+            </button>
+          ))}
+        </li>
+      ))}
+    </ul>
   );
 }

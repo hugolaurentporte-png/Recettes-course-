@@ -8,6 +8,8 @@ import {
 } from "./domain/shopping";
 import { INGREDIENTS, getIngredient } from "./data/ingredients";
 import * as db from "./storage/db";
+import { prunePlan, servingsByRecipe, type Meal, type PlanEntry } from "./domain/plan";
+import { RECIPES_BY_ID } from "./data/recipes";
 
 export const ALL_EQUIPMENT: Equipment[] = ["four", "poele", "casserole", "cocotte", "airfryer", "thermomix", "sans-cuisson"];
 
@@ -24,6 +26,7 @@ interface State {
   history: ItemHistory[];
   inventory: InventoryItem[];
   settings: Settings;
+  plan: PlanEntry[];
 }
 
 function uuid(): string {
@@ -39,7 +42,7 @@ function changed<T>(prev: readonly T[], next: readonly T[]): T[] {
 
 function useAppState() {
   const [state, setState] = useState<State>({
-    ready: false, shopping: [], history: [], inventory: [], settings: DEFAULT_SETTINGS,
+    ready: false, shopping: [], history: [], inventory: [], settings: DEFAULT_SETTINGS, plan: [],
   });
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -64,7 +67,7 @@ function useAppState() {
         }
         deviceId.current = id;
         await db.purgeTombstones(Date.now());
-        const [data, settings] = await Promise.all([db.loadAll(), db.getMeta<Settings>("settings")]);
+        const [data, settings, plan] = await Promise.all([db.loadAll(), db.getMeta<Settings>("settings"), db.getMeta<PlanEntry[]>("plan")]);
         if (cancelled) return;
         const loaded: State = {
           ready: true,
@@ -72,6 +75,7 @@ function useAppState() {
           history: data.history,
           inventory: data.inventory,
           settings: { ...DEFAULT_SETTINGS, ...settings },
+          plan: prunePlan(plan ?? [], new Date()),
         };
         stateRef.current = loaded;
         setState(loaded);
@@ -196,6 +200,69 @@ function useAppState() {
     [ctx, commitShopping],
   );
 
+  /** Ajoute en une fois ce qui manque pour plusieurs recettes (portions cumulées par recette). */
+  const addRecipes = useCallback(
+    (list: { recipe: Recipe; servings: number }[]): RecipeAddSummary => {
+      const s = stateRef.current;
+      const inv = new Map(s.inventory.map((i) => [i.ingredientId, i]));
+      const total: RecipeAddSummary = { added: 0, updated: 0, toVerify: 0, alreadyAvailable: 0 };
+      let items = s.shopping;
+      for (const { recipe, servings } of list) {
+        const r = addRecipeToList(items, recipe, servings, inv, ctx());
+        items = r.items;
+        total.added += r.summary.added;
+        total.updated += r.summary.updated;
+        total.toVerify += r.summary.toVerify;
+        total.alreadyAvailable += r.summary.alreadyAvailable;
+      }
+      commitShopping(items);
+      return total;
+    },
+    [ctx, commitShopping],
+  );
+
+  // ---------- Planning ----------
+  const commitPlan = useCallback(
+    (plan: PlanEntry[]) => {
+      const updated = { ...stateRef.current, plan };
+      stateRef.current = updated;
+      setState(updated);
+      persist(db.setMeta("plan", plan));
+    },
+    [persist],
+  );
+
+  const planRecipe = useCallback(
+    (recipeId: string, date: string, meal: Meal, servings: number) =>
+      void whenReady(() => {
+        const others = stateRef.current.plan.filter((e) => !(e.date === date && e.meal === meal));
+        commitPlan([...others, { id: uuid(), date, meal, recipeId, servings }]);
+      }),
+    [commitPlan, whenReady],
+  );
+
+  const updatePlanEntry = useCallback(
+    (id: string, patch: Partial<Pick<PlanEntry, "servings">>) =>
+      commitPlan(stateRef.current.plan.map((e) => (e.id === id ? { ...e, ...patch } : e))),
+    [commitPlan],
+  );
+
+  const removePlanEntry = useCallback(
+    (id: string) => commitPlan(stateRef.current.plan.filter((e) => e.id !== id)),
+    [commitPlan],
+  );
+
+  /** Met dans les courses ce qui manque pour les repas prévus sur ces jours. */
+  const addPlanToShopping = useCallback(
+    (days: string[]) => {
+      const list = [...servingsByRecipe(stateRef.current.plan, days)]
+        .map(([id, servings]) => ({ recipe: RECIPES_BY_ID.get(id), servings }))
+        .filter((x): x is { recipe: Recipe; servings: number } => x.recipe !== undefined);
+      return addRecipes(list);
+    },
+    [addRecipes],
+  );
+
   // ---------- Frigo ----------
   const commitInventory = useCallback(
     (next: InventoryItem[]) => {
@@ -259,7 +326,8 @@ function useAppState() {
     inventoryMap,
     storageError,
     dismissStorageError: () => setStorageError(null),
-    addItem, toggleItem, updateItem, removeItem, finish, addRecipe,
+    addItem, toggleItem, updateItem, removeItem, finish, addRecipe, addRecipes,
+    planRecipe, updatePlanEntry, removePlanEntry, addPlanToShopping,
     addToInventory, removeFromInventory, updateInventory,
     updateSettings,
   };
