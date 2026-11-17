@@ -114,6 +114,7 @@ export default function FrigoPage() {
           </button>
         </div>
       )}
+
       <h2 className="section-title">Parcourir par catégorie</h2>
       <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
         {CATEGORY_ORDER.map((c) => (
