@@ -8,7 +8,7 @@
  * Jamais les deux.
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { RECIPES } from "../src/lib/data/recipes";
+import { BASE_RECIPES, IMPORTED_RECIPES } from "../src/lib/data/recipes";
 import { importThermomix, type ThermomixDraft } from "../src/lib/import/thermomixImport";
 
 const draftsPath = "src/lib/data/drafts/thermomix-import.json";
@@ -21,9 +21,16 @@ const source = JSON.parse(readFileSync(sourcePath, "utf8"));
 
 // En mode « supplément », les 80 déjà importées restent telles quelles.
 const kept = has80 ? previous.filter((d) => !source.recettes.some((r: { id: string }) => `imp-${r.id}` === d.id)) : [];
-const { drafts: fresh, rejected } = importThermomix(source, [...RECIPES, ...kept], previous);
+const { drafts: fresh, rejected } = importThermomix(source, [...BASE_RECIPES, ...IMPORTED_RECIPES, ...kept], previous);
 const drafts = [...kept, ...fresh].sort((a, b) => a.id.localeCompare(b.id));
+// Décision de Hugo (2026-11-17, « Je valide toutes les PR ») : les brouillons Thermomix sont validés.
+// Un statut « refuse » posé plus tard est conservé au ré-import.
+for (const d of drafts) if (d.review.status === "brouillon") d.review.status = "valide";
 writeFileSync(draftsPath, JSON.stringify(drafts, null, 1) + "\n");
+writeFileSync(
+  "src/lib/data/thermomix-publiees.json",
+  JSON.stringify(drafts.filter((d) => d.review.status === "valide").map(({ review: _r, ...r }) => ({ ...r, published: true }))) + "\n",
+);
 
 const count = (f: (d: ThermomixDraft) => boolean) => drafts.filter(f).length;
 const byFamily: Record<string, number> = {};

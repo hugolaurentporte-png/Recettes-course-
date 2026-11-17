@@ -16,8 +16,8 @@
   "avecAlerte": 22,
   "chargeMaxDuBol": 1580,
   "statuts": {
-    "brouillon": 298,
-    "valide": 0,
+    "brouillon": 0,
+    "valide": 298,
     "refuse": 0
   },
   "rejets": [

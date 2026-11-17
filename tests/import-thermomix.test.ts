@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { INGREDIENTS_BY_ID, getIngredient } from "@/lib/data/ingredients";
-import { RECIPES } from "@/lib/data/recipes";
+import { BASE_RECIPES, IMPORTED_RECIPES, RECIPES, THERMOMIX_RECIPES } from "@/lib/data/recipes";
 import { UNITS } from "@/lib/domain/units";
 import { EMPTY_FILTERS, matchesFilters, rankRecipes } from "@/lib/domain/recommend";
 import { dedupKey, fixTitle, importThermomix, minutesInSteps, type ThermomixDraft } from "@/lib/import/thermomixImport";
@@ -18,18 +18,22 @@ describe("import Thermomix en brouillon", () => {
     expect(drafts).toHaveLength(report.acceptees);
   });
 
-  it("rien n'est publié et l'appli ne change pas", () => {
-    expect(drafts.every((d) => d.published === false && d.review.status === "brouillon")).toBe(true);
-    expect(RECIPES.some((r) => r.id.startsWith("imp-tmx-"))).toBe(false);
+  it("brouillons jamais publiés ; seules les recettes validées par Hugo entrent dans l'appli", () => {
+    expect(drafts.every((d) => d.published === false)).toBe(true);
     expect(drafts.some((d) => matchesFilters(d, EMPTY_FILTERS, getIngredient))).toBe(false);
+    const valid = drafts.filter((d) => d.review.status === "valide").map((d) => d.id);
+    expect(THERMOMIX_RECIPES.map((r) => r.id)).toEqual(valid);
+    expect(THERMOMIX_RECIPES.every((r) => r.published)).toBe(true);
+    expect(RECIPES.filter((r) => r.id.startsWith("imp-tmx-"))).toHaveLength(valid.length);
   });
 
-  it("idempotent", () => {
-    expect(importThermomix(source, RECIPES, drafts).drafts).toEqual(drafts);
+  it("idempotent (statuts de relecture conservés)", () => {
+    const again = importThermomix(source, [...BASE_RECIPES, ...IMPORTED_RECIPES], drafts).drafts;
+    expect(again).toEqual(drafts);
   });
 
   it("aucun doublon de nom avec les recettes Thermomix existantes ni entre elles", () => {
-    const tm = RECIPES.filter((r) => r.id.startsWith("tm-")).map((r) => dedupKey(r.title));
+    const tm = BASE_RECIPES.filter((r) => r.id.startsWith("tm-")).map((r) => dedupKey(r.title));
     const keys = drafts.map((d) => dedupKey(d.title));
     expect(keys.filter((k) => tm.includes(k))).toEqual([]);
     expect(new Set(keys).size).toBe(keys.length);
