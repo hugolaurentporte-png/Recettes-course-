@@ -1,0 +1,48 @@
+{
+  "source": "data/import/recettes_1000_import.json",
+  "entrees": 1000,
+  "recettesExistantesIntactes": 98,
+  "acceptees": 997,
+  "rejetees": 3,
+  "doublonsDeRecettesExistantes": 3,
+  "variantesTresProches": 298,
+  "prochesDUneRecetteExistante": 92,
+  "avecAlerte": 171,
+  "statuts": {
+    "brouillon": 0,
+    "valide": 679,
+    "refuse": 318
+  },
+  "correctionsCommunes": [
+    "Étapes réécrites avec des temps précis pour chaque légume, féculent et garniture.",
+    "Volaille : cuisson détaillée (8 à 10 min, plus de trace rosée, 74 °C à cœur) au lieu de « cuire complètement ».",
+    "Poisson : cuisson détaillée (opaque à cœur, 63 °C) ; dans les cocottes et currys, il poche dans la sauce en fin de cuisson.",
+    "Œufs : « selon la méthode indiquée » (aucune méthode donnée) remplacé par des œufs durs 10 minutes, jaune entièrement pris.",
+    "Équipement complété (poêle et casserole réellement utilisées), pour que le filtre « cuisson » soit juste.",
+    "Sel et poivre « selon le goût » ; ail compté en gousses ; bouillon en cube + eau ; saumon en pavés.",
+    "Titres : français corrigé (« d'épinards » au lieu de « de épinards », « à la semoule » au lieu de « au semoule »)."
+  ],
+  "rejets": [
+    {
+      "sourceId": "fr-0065",
+      "title": "Plaque rôtie de courgettes et saumon au paprika",
+      "reason": "doublon",
+      "detail": "Même plat que « Saumon au four et légumes », déjà dans l'appli.",
+      "duplicateOf": "saumon-four-legumes"
+    },
+    {
+      "sourceId": "fr-0092",
+      "title": "Gratin de courgettes et œufs à la moutarde",
+      "reason": "doublon",
+      "detail": "Même plat que « Gratin de courgettes », déjà dans l'appli.",
+      "duplicateOf": "gratin-courgettes"
+    },
+    {
+      "sourceId": "fr-0379",
+      "title": "Curry doux d'épinards et pois chiches au lait de coco",
+      "reason": "doublon",
+      "detail": "Même plat que « Curry de pois chiches et épinards », déjà dans l'appli.",
+      "duplicateOf": "curry-pois-chiches"
+    }
+  ]
+}
