@@ -1,5 +1,8 @@
 import type { Aisle, Ingredient, IngredientCategory } from "./types";
 import { itemKey, normalizeText } from "./normalize";
+import { PRODUCT_AISLE } from "../data/products";
+
+const PRODUCT_BY_KEY: ReadonlyMap<string, Aisle> = new Map([...PRODUCT_AISLE].map(([n, a]) => [itemKey(n), a]));
 
 export const AISLE_LABELS: Record<Aisle, string> = {
   "fruits-legumes": "Fruits et légumes",
@@ -52,8 +55,8 @@ export function aisleForCategory(c: IngredientCategory): Aisle {
 /** Mots-clés pour les produits hors catalogue (y compris non alimentaires). Ordre = priorité. */
 const KEYWORDS: [Aisle, string[]][] = [
   ["surgeles", ["surgele", "glace", "glaces", "frite surgelee", "pizza surgelee", "esquimau"]],
-  ["hygiene", ["shampoing", "shampooing", "dentifrice", "brosse a dent", "savon", "gel douche", "deodorant", "coton", "rasoir", "mouchoir", "papier toilette", "pq", "couche", "lingette", "creme solaire", "serviette hygienique", "tampon", "apres shampoing"]],
-  ["maison", ["lessive", "liquide vaisselle", "eponge", "sac poubelle", "essuie tout", "sopalin", "javel", "nettoyant", "pastille lave vaisselle", "adoucissant", "ampoule", "pile", "aluminium", "film alimentaire", "allumette", "bougie", "croquette", "litiere"]],
+  ["hygiene", ["shampoing", "shampooing", "dentifrice", "brosse a dent", "savon", "gel douche", "deodorant", "coton", "rasoir", "mouchoir", "papier toilette", "pq", "couche", "lingette", "creme solaire", "serviette hygienique", "tampon", "apres shampoing", "bebe", "lait infantile", "petit pot", "liniment", "pansement", "doliprane", "paracetamol", "serum", "demaquillant", "coton tige", "fil dentaire", "bain de bouche"]],
+  ["maison", ["lessive", "liquide vaisselle", "eponge", "sac poubelle", "essuie tout", "sopalin", "javel", "nettoyant", "pastille lave vaisselle", "adoucissant", "ampoule", "pile", "aluminium", "film alimentaire", "allumette", "bougie", "croquette", "litiere", "patee", "sac congelation", "papier cuisson", "gant", "detachant", "lave vaisselle", "rincage", "vitre", "wc"]],
   ["boissons", ["eau", "jus", "soda", "coca", "biere", "vin", "cafe", "the", "sirop", "limonade", "tisane"]],
   ["frais", ["yaourt", "fromage", "beurre", "creme", "lait", "oeuf", "jambon", "pate fraiche", "compote", "dessert", "skyr", "faisselle", "camembert", "emmental", "gruyere"]],
   ["viandes-poissons", ["viande", "poulet", "boeuf", "porc", "veau", "agneau", "steak", "saucisse", "poisson", "saumon", "thon frais", "crevette", "jambon cru"]],
@@ -81,6 +84,8 @@ export function matchIngredient(name: string, catalog: readonly Ingredient[]): I
 export function guessAisle(name: string, catalog: readonly Ingredient[]): Aisle {
   const ing = matchIngredient(name, catalog);
   if (ing) return aisleForCategory(ing.category);
+  const known = PRODUCT_BY_KEY.get(itemKey(name));
+  if (known) return known;
   const n = normalizeText(name);
   for (const [aisle, words] of KEYWORDS) {
     if (words.some((w) => containsWord(n, w))) return aisle;

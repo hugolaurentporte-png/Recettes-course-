@@ -7,6 +7,8 @@ import { AISLE_ICONS, AISLE_LABELS, AISLE_ORDER } from "@/lib/domain/categorize"
 import { parseItemInput } from "@/lib/domain/parse";
 import { EDITABLE_UNITS, UNITS, formatAmount } from "@/lib/domain/units";
 import { INGREDIENTS } from "@/lib/data/ingredients";
+import { PRODUCTS, PRODUCT_NAMES } from "@/lib/data/products";
+import { itemKey } from "@/lib/domain/normalize";
 import type { Aisle, ShoppingItem, Unit } from "@/lib/domain/types";
 import { useToast } from "@/components/Toast";
 import { Sheet } from "@/components/Sheet";
@@ -17,12 +19,13 @@ export default function CoursesPage() {
   const toast = useToast();
   const [text, setText] = useState("");
   const [editing, setEditing] = useState<ShoppingItem | null>(null);
+  const [browsing, setBrowsing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { groups, checked } = useMemo(() => groupForDisplay(store.shopping), [store.shopping]);
   const toBuy = groups.reduce((n, g) => n + g.items.length, 0);
   const suggestions = useMemo(
-    () => suggest(parseItemInput(text).name, store.history, store.shopping, INGREDIENTS, 8),
+    () => suggest(parseItemInput(text).name, store.history, store.shopping, INGREDIENTS, 8, PRODUCT_NAMES),
     [text, store.history, store.shopping],
   );
 
@@ -64,6 +67,11 @@ export default function CoursesPage() {
             <PlusIcon width={28} height={28} />
           </button>
         </form>
+        {!text.trim() && (
+          <button type="button" className="mt-3 text-sm font-semibold text-brand-700" onClick={() => setBrowsing(true)}>
+            🛒 Parcourir les rayons du supermarché
+          </button>
+        )}
         {suggestions.length > 0 && (
           <div className="no-scrollbar -mx-4 mt-3 flex gap-2 overflow-x-auto px-4" aria-label="Suggestions">
             {suggestions.map((s) => (
@@ -110,6 +118,9 @@ export default function CoursesPage() {
       )}
 
       <EditSheet item={editing} onClose={() => setEditing(null)} />
+      <Sheet open={browsing} onClose={() => setBrowsing(false)} title="Rayons du supermarché">
+        {browsing && <AisleBrowser />}
+      </Sheet>
     </div>
   );
 }
@@ -219,5 +230,35 @@ function EditForm({ item, onClose }: { item: ShoppingItem; onClose: () => void }
         <button type="submit" className="btn-primary flex-1">Enregistrer</button>
       </div>
     </form>
+  );
+}
+
+/** Tous les rayons : un toucher ajoute le produit, un second le retire. */
+function AisleBrowser() {
+  const store = useStore();
+  const inList = new Map(
+    store.shopping.filter((i) => i.deletedAt === null && !i.checked).map((i) => [itemKey(i.customName), i.id] as const),
+  );
+  const aisles = AISLE_ORDER.filter((a): a is keyof typeof PRODUCTS => a in PRODUCTS);
+  return (
+    <div className="max-h-[65vh] overflow-y-auto pb-4">
+      <p className="text-sm text-stone-600">Touchez un produit pour l&apos;ajouter, touchez-le encore pour le retirer.</p>
+      {aisles.map((a) => (
+        <section key={a}>
+          <h3 className="section-title">{AISLE_ICONS[a]} {AISLE_LABELS[a]}</h3>
+          <div className="flex flex-wrap gap-2">
+            {PRODUCTS[a].map((name) => {
+              const id = inList.get(itemKey(name));
+              return (
+                <button key={name} type="button" aria-pressed={id !== undefined} className={`chip ${id ? "chip-on" : ""}`}
+                  onClick={() => (id ? store.removeItem(id) : store.addItem(name))}>
+                  {id ? "✓ " : ""}{name}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
   );
 }

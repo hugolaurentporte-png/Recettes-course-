@@ -139,9 +139,9 @@ describe("modifier, cocher, supprimer, terminer", () => {
 
   it("changer la catégorie la verrouille, même si on renomme ensuite", () => {
     const c = ctx();
-    let { items, item } = addManualItem([], { name: "Glaçons" }, c);
+    let { items, item } = addManualItem([], { name: "Bidule" }, c);
     items = editItem(items, item.id, { aisle: "surgeles" }, c);
-    items = editItem(items, item.id, { name: "Sac de glaçons" }, c);
+    items = editItem(items, item.id, { name: "Gros bidule" }, c);
     expect(items[0]!.aisle).toBe("surgeles");
     expect(items[0]!.aisleLocked).toBe(true);
   });
@@ -203,5 +203,31 @@ describe("suggestions et classement", () => {
     expect(guessAisle("Petits pois surgelés", INGREDIENTS)).toBe("surgeles");
     expect(guessAisle("Yaourts aux fruits", INGREDIENTS)).toBe("frais");
     expect(guessAisle("Tomates", INGREDIENTS)).toBe("fruits-legumes");
+  });
+});
+
+import { PRODUCTS, PRODUCT_NAMES } from "@/lib/data/products";
+
+describe("produits du supermarché (non alimentaire compris)", () => {
+  it("suggère des produits non alimentaires dès les premières lettres", () => {
+    expect(suggest("papier", [], [], INGREDIENTS, 8, PRODUCT_NAMES).map((s) => s.name)).toContain("Papier toilette");
+    expect(suggest("less", [], [], INGREDIENTS, 8, PRODUCT_NAMES).map((s) => s.name)).toContain("Lessive");
+  });
+  it("ne propose pas deux fois un produit déjà au catalogue d'ingrédients", () => {
+    const names = suggest("pomme", [], [], INGREDIENTS, 20, PRODUCT_NAMES).map((s) => s.name.toLowerCase());
+    expect(names.filter((n) => n === "pommes").length).toBeLessThanOrEqual(1);
+  });
+  it("range chaque produit dans son rayon", () => {
+    for (const [aisle, names] of Object.entries(PRODUCTS)) {
+      for (const n of names) {
+        const got = guessAisle(n, []);
+        expect([n, got]).toEqual([n, aisle]);
+      }
+    }
+    expect(guessAisle("Croquettes chat", INGREDIENTS)).toBe("maison");
+    expect(guessAisle("Couches", INGREDIENTS)).toBe("hygiene");
+  });
+  it("pas de doublon dans la liste de produits", () => {
+    expect(new Set(PRODUCT_NAMES).size).toBe(PRODUCT_NAMES.length);
   });
 });
