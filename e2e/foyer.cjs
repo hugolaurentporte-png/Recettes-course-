@@ -41,7 +41,9 @@ const RPC = {
 let calls = 0;
 
 /** Faux PostgREST : POST /rest/v1/rpc/<fonction> exécuté en tant que rôle « anon ». */
-async function rpcRoute(route) {
+async function rpcRoute(route, offline) {
+  // Les requêtes interceptées ne voient pas setOffline : on simule nous-mêmes la coupure.
+  if (offline()) return route.abort("internetdisconnected");
   const req = route.request();
   const name = new URL(req.url()).pathname.split("/").pop();
   if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors() });
@@ -70,7 +72,13 @@ const cors = () => ({ "access-control-allow-origin": "*", "access-control-allow-
 
 async function phone(browser, label) {
   const context = await browser.newContext({ ...devices["iPhone 13"], locale: "fr-FR", serviceWorkers: "block" });
-  await context.route(`${SUPABASE}/**`, rpcRoute);
+  const state = { offline: false };
+  await context.route(`${SUPABASE}/**`, (route) => rpcRoute(route, () => state.offline));
+  /** Coupe / rétablit le réseau du téléphone (événements online/offline compris). */
+  context.network = async (online) => {
+    state.offline = !online;
+    await context.setOffline(!online);
+  };
   const page = await context.newPage();
   page.on("pageerror", (e) => check(`${label} : aucune erreur JavaScript`, false, e.message));
   await page.goto(`${BASE}/`);
@@ -157,7 +165,7 @@ const rowCount = (page, name) => page.getByRole("button", { name: `Retirer ${nam
     (await A.page.getByText("Quantité à vérifier").count()) === 0 && (await A.page.getByText("500 ml").count()) === 1));
 
   // 4. B passe hors ligne et ajoute des œufs ; pendant ce temps A retire les dernières pommes de terre.
-  await B.context.setOffline(true);
+  await B.context.network(false);
   await addToFridge(B.page, "oeuf", { label: "Œufs", value: 6 }, "piece");
   const cook = A.page.getByRole("button", { name: /J'ai cuisiné/ });
   if (process.env.COOK_RECIPE) {
@@ -172,12 +180,12 @@ const rowCount = (page, name) => page.getByRole("button", { name: `Retirer ${nam
     await A.page.getByRole("button", { name: "Retirer Pommes de terre" }).click();
   }
   check("A : pommes de terre retirées", await eventually(async () => (await rowCount(A.page, "Pommes de terre")) === 0));
-  await A.page.waitForTimeout(1500);
+  await A.page.waitForTimeout(6000); // plus qu'un cycle de synchronisation (5 s)
   check("B hors ligne : les œufs sont dans son frigo", (await rowCount(B.page, "Œufs")) === 1);
   check("B hors ligne : il voit encore les pommes de terre (pas de réseau)", (await rowCount(B.page, "Pommes de terre")) === 1);
 
   // 5. Retour du réseau.
-  await B.context.setOffline(false);
+  await B.context.network(true);
   for (const [label, p] of [["A", A.page], ["B", B.page]]) {
     check(`${label} : voit les œufs après la reconnexion`, await eventually(async () => (await rowCount(p, "Œufs")) === 1));
     check(`${label} : les pommes de terre restent retirées`, await eventually(async () => (await rowCount(p, "Pommes de terre")) === 0));
