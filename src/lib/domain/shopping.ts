@@ -259,6 +259,8 @@ export function deleteItem(items: readonly ShoppingItem[], id: string, ctx: Shop
 export function finishShopping(
   items: readonly ShoppingItem[],
   ctx: ShoppingContext,
+  /** Montant du ticket et prix par article (id → euros), facultatifs. */
+  money: { amount?: number | null; prices?: ReadonlyMap<string, number> } = {},
 ): { items: ShoppingItem[]; trip: ShoppingTrip | null } {
   const bought = activeItems(items).filter((i) => i.checked);
   if (bought.length === 0) return { items: [...items], trip: null };
@@ -269,11 +271,20 @@ export function finishShopping(
       id: ctx.newId(),
       listId: ctx.listId,
       finishedAt: ctx.now,
-      items: bought.map(({ customName, ingredientId, aisle, manual, recipeMissing }) => ({
-        customName, ingredientId, aisle, manual, recipeMissing,
-      })),
+      items: bought.map(({ id, customName, ingredientId, aisle, manual, recipeMissing }) => {
+        const price = money.prices?.get(id);
+        return { customName, ingredientId, aisle, manual, recipeMissing, ...(price ? { price } : {}) };
+      }),
+      ...tripAmount(bought.map((b) => money.prices?.get(b.id)), money.amount),
     },
   };
+}
+
+/** Total du ticket : celui tapé, sinon la somme des prix saisis, sinon rien. */
+function tripAmount(prices: (number | undefined)[], typed?: number | null): { amount?: number } {
+  if (typed && typed > 0) return { amount: typed };
+  const sum = prices.reduce<number>((s, p) => s + (p ?? 0), 0);
+  return sum > 0 ? { amount: Math.round(sum * 100) / 100 } : {};
 }
 
 export interface AisleGroup {
