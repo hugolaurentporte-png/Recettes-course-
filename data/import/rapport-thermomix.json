@@ -1,0 +1,37 @@
+{
+  "source": "data/import/recettes_thermomix_300_complet.json",
+  "entrees": 300,
+  "acceptees": 298,
+  "rejetees": 2,
+  "parFamille": {
+    "Soupe": 44,
+    "Accompagnement": 35,
+    "Dessert": 56,
+    "Sauce": 32,
+    "Plat complet": 11,
+    "Plat végétarien": 100,
+    "Apéritif": 20
+  },
+  "prochesDUneRecetteThermomixExistante": 35,
+  "avecAlerte": 22,
+  "chargeMaxDuBol": 1580,
+  "statuts": {
+    "brouillon": 298,
+    "valide": 0,
+    "refuse": 0
+  },
+  "rejets": [
+    {
+      "sourceId": "tmx-0025",
+      "title": "Purée de pommes de terre au Thermomix",
+      "reason": "doublon",
+      "detail": "Même nom que « Purée de pommes de terre au Thermomix »."
+    },
+    {
+      "sourceId": "tmx-0069",
+      "title": "Risotto aux champignons au Thermomix",
+      "reason": "doublon",
+      "detail": "Même nom que « Risotto aux champignons au Thermomix »."
+    }
+  ]
+}

@@ -57,6 +57,11 @@ const FR_METRO: Calendar = {
   raisin: { full: [9, 10], edge: [8, 11] },
   melon: { full: [7, 8], edge: [6, 9] },
   cerise: { full: [6], edge: [5, 7] },
+  figue: { full: [8, 9, 10], edge: [7] },
+  myrtille: { full: [7, 8], edge: [6, 9] },
+  nectarine: { full: [7, 8], edge: [6, 9] },
+  coing: { full: [10, 11], edge: [9] },
+  panais: { full: [10, 11, 12, 1, 2, 3], edge: [9, 4] },
   rhubarbe: { full: [5, 6], edge: [4, 7] },
 };
 
