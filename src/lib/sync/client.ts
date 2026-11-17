@@ -1,7 +1,7 @@
 import type { ShoppingItem } from "../domain/types";
 import { SYNC_KEY, SYNC_URL } from "./config";
 
-async function rpc<T>(name: string, body: unknown): Promise<T> {
+export async function rpc<T>(name: string, body: unknown): Promise<T> {
   const res = await fetch(`${SYNC_URL}/rest/v1/rpc/${name}`, {
     method: "POST",
     headers: { apikey: SYNC_KEY, "Content-Type": "application/json" },
@@ -33,23 +33,3 @@ export async function pullItems(code: string, since: number): Promise<{ items: S
   return { items, seq };
 }
 
-/** Données du foyer autres que la liste (planning…) : table foyer_docs, voir supabase/foyer.sql. */
-export async function pushDocs(code: string, kind: string, docs: readonly unknown[]) {
-  for (let i = 0; i < docs.length; i += 400) {
-    await rpc("foyer_push", { p_foyer: code, p_kind: kind, p_docs: docs.slice(i, i + 400) });
-  }
-}
-
-export async function pullDocs<T>(code: string, kind: string, since: number): Promise<{ docs: T[]; seq: number }> {
-  let seq = since;
-  const docs: T[] = [];
-  for (;;) {
-    const rows = await rpc<{ data: T; seq: number }[]>("foyer_pull", { p_foyer: code, p_kind: kind, p_since: seq });
-    for (const r of rows) {
-      docs.push(r.data);
-      seq = Math.max(seq, Number(r.seq));
-    }
-    if (rows.length < 1000) break;
-  }
-  return { docs, seq };
-}

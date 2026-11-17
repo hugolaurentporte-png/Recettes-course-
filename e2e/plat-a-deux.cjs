@@ -16,7 +16,12 @@ const visible = (loc, timeout = 15000) => loc.first().waitFor({ timeout }).then(
 
 // ---- Faux Supabase : mêmes règles que les fonctions SQL (le plus récent gagne, numéro de séquence). ----
 let seq = 0;
-const tables = { courses: new Map(), docs: new Map() };
+const tables = { courses: new Map(), docs: new Map(), members: new Map() };
+const foyerOf = (key) => {
+  const f = tables.members.get(key);
+  if (!f) throw new Error("ce téléphone n'est membre d'aucun foyer");
+  return f;
+};
 function push(table, key, data) {
   const cur = table.get(key);
   if (!cur || data.updatedAt > cur.data.updatedAt) table.set(key, { data, seq: ++seq });
@@ -26,9 +31,15 @@ function rpc(name, b) {
     case "courses_push": for (const it of b.p_items) push(tables.courses, `${b.p_foyer}/${it.id}`, it); return null;
     case "courses_pull": return [...tables.courses.entries()].filter(([k, v]) => k.startsWith(`${b.p_foyer}/`) && v.seq > b.p_since)
       .map(([, v]) => v).sort((x, y) => x.seq - y.seq);
-    case "foyer_push": for (const d of b.p_docs) push(tables.docs, `${b.p_foyer}/${b.p_kind}/${d.id}`, d); return null;
-    case "foyer_pull": return [...tables.docs.entries()].filter(([k, v]) => k.startsWith(`${b.p_foyer}/${b.p_kind}/`) && v.seq > b.p_since)
-      .map(([, v]) => v).sort((x, y) => x.seq - y.seq);
+    // Foyer réservé aux membres (supabase/foyer.sql) : le foyer est retrouvé à partir de la clé du téléphone.
+    case "foyer_entrer": tables.members.set(b.p_membre, b.p_code); return null;
+    case "foyer_quitter": tables.members.delete(b.p_membre); return null;
+    case "foyer_liste_membres": return [...tables.members.entries()].filter(([, f]) => f === foyerOf(b.p_membre))
+      .map(([k]) => ({ nom: "", rejoint_le: "", moi: k === b.p_membre }));
+    case "foyer_push": { const f = foyerOf(b.p_membre); for (const d of b.p_docs) push(tables.docs, `${f}/${b.p_kind}/${d.id}`, d); return null; }
+    case "foyer_pull": { const f = foyerOf(b.p_membre);
+      return [...tables.docs.entries()].filter(([k, v]) => k.startsWith(`${f}/${b.p_kind}/`) && v.seq > b.p_since)
+        .map(([, v]) => v).sort((x, y) => x.seq - y.seq); }
     default: throw new Error(name);
   }
 }
@@ -37,8 +48,12 @@ async function phone(browser, name) {
   const context = await browser.newContext({ ...devices["iPhone 13"], locale: "fr-FR", serviceWorkers: "block" });
   await context.route(/supabase\.co\/rest\/v1\/rpc\//, async (route) => {
     const fn = route.request().url().split("/rpc/")[1];
-    const body = rpc(fn, JSON.parse(route.request().postData() || "{}"));
-    await route.fulfill({ status: 200, contentType: "application/json", body: body === null ? "" : JSON.stringify(body) });
+    try {
+      const body = rpc(fn, JSON.parse(route.request().postData() || "{}"));
+      await route.fulfill({ status: 200, contentType: "application/json", body: body === null ? "" : JSON.stringify(body) });
+    } catch (e) {
+      await route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ message: String(e.message) }) });
+    }
   });
   const page = await context.newPage();
   page.on("pageerror", (e) => check(`${name} : aucune erreur JavaScript`, false, e.message));
@@ -79,11 +94,11 @@ async function cremeRows(page) {
 
   // A partage la liste, B la rejoint : même foyer.
   await a.goto(`${BASE}/partage/`);
-  await a.getByRole("button", { name: "Partager ma liste" }).click();
+  await a.getByRole("button", { name: "Créer mon foyer" }).click();
   const code = (await a.locator("code").first().innerText()).trim();
   await b.goto(`${BASE}/partage/?code=${code}`);
-  await b.getByRole("button", { name: "Rejoindre la liste" }).click();
-  check("B rejoint le foyer de A", await visible(b.getByText("Votre liste de courses est partagée")));
+  await b.getByRole("button", { name: "Rejoindre le foyer" }).click();
+  check("B rejoint le foyer de A", await visible(b.getByText(/Votre liste de courses.*partagé/)));
 
   // Chez B, il ne manque que la crème pour le gratin.
   await stockFrigo(b, [

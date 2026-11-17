@@ -105,6 +105,11 @@ export interface InventoryItem {
   quantity: number | null;
   unit: Unit | null;
   priority: boolean;
+  /**
+   * Frigo partagé : les deux téléphones avaient ce produit avec des quantités différentes
+   * au moment de la fusion. « Quantité à vérifier » jusqu'à ce que quelqu'un la corrige.
+   */
+  quantityCheck?: { quantity: number; unit: Unit | null }[];
   updatedAt: number;
 }
 
