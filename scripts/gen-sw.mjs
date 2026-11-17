@@ -5,6 +5,7 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
 const OUT = "out";
+const BASE = process.env.BASE_PATH || "";
 const files = [];
 (function walk(dir) {
   for (const f of readdirSync(dir)) {
@@ -19,6 +20,7 @@ const urls = files
   .filter((u) => u !== "/sw.js" && !u.endsWith(".txt") && !u.endsWith(".map"))
   .map((u) => u.replace(/index\.html$/, ""))
   // Next demande ces fichiers avec les crochets encodés ([id] -> %5Bid%5D).
+  .map((u) => BASE + u)
   .map((u) => u.replace(/\[/g, "%5B").replace(/\]/g, "%5D"));
 
 const hash = createHash("sha256");
@@ -52,7 +54,7 @@ self.addEventListener("fetch", (e) => {
         .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return res; })
         .catch(async () => (await caches.match(req, { ignoreSearch: true }))
           ?? (await caches.match(url.pathname.endsWith("/") ? url.pathname : url.pathname + "/"))
-          ?? (await caches.match("/"))),
+          ?? (await caches.match("${BASE}/"))),
     );
     return;
   }
