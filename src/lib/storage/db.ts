@@ -89,6 +89,20 @@ export async function putInventory(items: InventoryItem[]) {
   await done;
 }
 
+/**
+ * Enregistre en une seule transaction les produits du frigo modifiés / retirés et, si le frigo est partagé,
+ * la file d'envoi au foyer : si l'appli est fermée juste après, on garde les deux ou aucun des deux.
+ */
+export async function saveInventory(put: InventoryItem[], del: string[], outbox?: unknown[]) {
+  if (put.length === 0 && del.length === 0 && outbox === undefined) return;
+  const db = await getDb();
+  const tx = db.transaction(["inventory", "meta"], "readwrite");
+  const inv = tx.objectStore("inventory");
+  const ops: Promise<unknown>[] = [...put.map((i) => inv.put(i)), ...del.map((id) => inv.delete(id))];
+  if (outbox !== undefined) ops.push(tx.objectStore("meta").put(outbox, "fridgeOutbox"));
+  await Promise.all([...ops, tx.done]);
+}
+
 export async function deleteInventory(ids: string[]) {
   if (ids.length === 0) return;
   const db = await getDb();

@@ -599,12 +599,13 @@ function useAppState() {
     (proposed: InventoryItem[], opts: { remote?: boolean } = {}) => {
       const prev = stateRef.current;
       let next = proposed;
+      let outbox: StockDoc[] | undefined;
       if (prev.fridgeShared && !opts.remote) {
         const c = localChanges(prev.inventory, proposed, Date.now(), deviceId.current);
         next = c.inventory;
         if (c.docs.length) {
           for (const d of c.docs) fridgeOutbox.current.set(d.id, d);
-          persist(saveOutbox());
+          outbox = [...fridgeOutbox.current.values()];
           scheduleSyncRef.current();
         }
       }
@@ -613,10 +614,9 @@ function useAppState() {
       const updated = { ...prev, inventory: next };
       stateRef.current = updated;
       setState(updated);
-      persist(db.putInventory(changed(prev.inventory, next)));
-      persist(db.deleteInventory(removed));
+      persist(db.saveInventory(changed(prev.inventory, next), removed, outbox));
     },
-    [persist, saveOutbox],
+    [persist],
   );
   commitInventoryRef.current = commitInventory;
 
