@@ -153,7 +153,9 @@ export interface ShoppingTrip {
   id: string;
   listId: string;
   finishedAt: number;
-  items: Pick<ShoppingItem, "customName" | "ingredientId" | "aisle" | "manual" | "recipeMissing">[];
+  /** Montant payé (en euros), saisi à la fin des courses. Facultatif. */
+  amount?: number;
+  items: (Pick<ShoppingItem, "customName" | "ingredientId" | "aisle" | "manual" | "recipeMissing"> & { price?: number })[];
 }
 
 /** Fréquence de saisie, pour les suggestions. */

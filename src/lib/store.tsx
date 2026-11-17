@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { Equipment, InventoryItem, ItemHistory, Recipe, ShoppingItem, Unit } from "./domain/types";
+import type { Aisle, Equipment, InventoryItem, ItemHistory, Recipe, ShoppingItem, ShoppingTrip, Unit } from "./domain/types";
 import {
   addManualItem, addRecipeToList, deleteItem, editItem, finishShopping, recordUsage, toggleChecked,
   type ItemEdit, type RecipeAddSummary, type ShoppingContext,
@@ -17,6 +17,8 @@ export const ALL_EQUIPMENT: Equipment[] = ["four", "poele", "casserole", "cocott
 export interface Settings {
   onboarded: boolean;
   ownedEquipment: Equipment[];
+  /** Budget courses mensuel en euros (null = pas de budget). */
+  monthlyBudget?: number | null;
 }
 
 const DEFAULT_SETTINGS: Settings = { onboarded: false, ownedEquipment: ALL_EQUIPMENT.filter((e) => e !== "thermomix") };
@@ -28,6 +30,7 @@ interface State {
   inventory: InventoryItem[];
   settings: Settings;
   plan: PlanEntry[];
+  trips: ShoppingTrip[];
 }
 
 function uuid(): string {
@@ -43,7 +46,7 @@ function changed<T>(prev: readonly T[], next: readonly T[]): T[] {
 
 function useAppState() {
   const [state, setState] = useState<State>({
-    ready: false, shopping: [], history: [], inventory: [], settings: DEFAULT_SETTINGS, plan: [],
+    ready: false, shopping: [], history: [], inventory: [], settings: DEFAULT_SETTINGS, plan: [], trips: [],
   });
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -78,6 +81,7 @@ function useAppState() {
           inventory: data.inventory,
           settings: { ...DEFAULT_SETTINGS, ...settings },
           plan: prunePlan(plan ?? [], new Date()),
+          trips: data.trips,
         };
         stateRef.current = loaded;
         setState(loaded);
@@ -173,14 +177,37 @@ function useAppState() {
     [ctx, commitShopping],
   );
 
-  const finish = useCallback(() => {
+  const saveTrip = useCallback((trip: ShoppingTrip) => {
+    const updated = { ...stateRef.current, trips: [...stateRef.current.trips.filter((t) => t.id !== trip.id), trip] };
+    stateRef.current = updated;
+    setState(updated);
+    persist(db.putTrip(trip));
+  }, [persist]);
+
+  const removeTrip = useCallback((id: string) => {
+    const updated = { ...stateRef.current, trips: stateRef.current.trips.filter((t) => t.id !== id) };
+    stateRef.current = updated;
+    setState(updated);
+    persist(db.deleteTrip(id));
+  }, [persist]);
+
+  /** Dépense sans liste (marché, boulangerie…) : un montant, éventuellement un rayon. */
+  const addExpense = useCallback((amount: number, aisle: Aisle | null, when = Date.now()) => {
+    saveTrip({
+      id: uuid(), listId: "default", finishedAt: when, amount,
+      items: aisle ? [{ customName: "Dépense", ingredientId: null, aisle, manual: null, recipeMissing: [], price: amount }] : [],
+    });
+  }, [saveTrip]);
+
+  const finish = useCallback((money: { amount?: number | null; prices?: ReadonlyMap<string, number> } = {}) => {
     const before = stateRef.current.shopping;
     const inventoryBefore = stateRef.current.inventory;
     const bought = before.filter((i) => i.checked && i.deletedAt === null);
-    const r = finishShopping(before, ctx());
+    const r = finishShopping(before, ctx(), money);
     if (!r.trip) return null;
+    const trip = r.trip;
     commitShopping(r.items);
-    persist(db.putTrip(r.trip));
+    saveTrip(trip);
     // Ce qui a été acheté rejoint le frigo / la maison.
     const stock = stockFromPurchase(inventoryBefore, bought, Date.now(), uuid);
     commitInventoryRef.current(stock.inventory);
@@ -194,9 +221,10 @@ function useAppState() {
           stateRef.current.shopping.map((i) => (archivedIds.has(i.id) ? { ...i, deletedAt: null, updatedAt: now } : i)),
         );
         commitInventoryRef.current(inventoryBefore);
+        removeTrip(trip.id);
       },
     };
-  }, [ctx, commitShopping, persist]);
+  }, [ctx, commitShopping, saveTrip, removeTrip]);
 
   const addRecipe = useCallback(
     (recipe: Recipe, servings: number): RecipeAddSummary => {
@@ -336,7 +364,7 @@ function useAppState() {
     inventoryMap,
     storageError,
     dismissStorageError: () => setStorageError(null),
-    addItem, toggleItem, updateItem, removeItem, finish, addRecipe, addRecipes,
+    addItem, toggleItem, updateItem, removeItem, finish, addRecipe, addRecipes, addExpense, removeTrip,
     planRecipe, updatePlanEntry, removePlanEntry, addPlanToShopping,
     addToInventory, removeFromInventory, updateInventory,
     updateSettings,

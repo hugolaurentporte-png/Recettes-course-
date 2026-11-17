@@ -75,6 +75,11 @@ export async function putTrip(trip: ShoppingTrip) {
   await db.put("trips", trip);
 }
 
+export async function deleteTrip(id: string) {
+  const db = await getDb();
+  await db.delete("trips", id);
+}
+
 export async function putInventory(items: InventoryItem[]) {
   if (items.length === 0) return;
   const db = await getDb();

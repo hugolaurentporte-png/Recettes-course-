@@ -9,6 +9,8 @@ import { EDITABLE_UNITS, UNITS, formatAmount } from "@/lib/domain/units";
 import { INGREDIENTS } from "@/lib/data/ingredients";
 import { PRODUCTS, PRODUCT_NAMES } from "@/lib/data/products";
 import { itemKey } from "@/lib/domain/normalize";
+import { formatEuros, parseEuros } from "@/lib/domain/budget";
+import Link from "next/link";
 import type { Aisle, ShoppingItem, Unit } from "@/lib/domain/types";
 import { useToast } from "@/components/Toast";
 import { Sheet } from "@/components/Sheet";
@@ -45,10 +47,10 @@ export default function CoursesPage() {
   }
 
   /** Récapitulatif : les articles décochés ici n'ont pas été pris et restent dans la liste. */
-  function onFinish(notBought: Set<string>) {
+  function onFinish(notBought: Set<string>, money: { amount: number | null; prices: Map<string, number> }) {
     setReviewing(false);
     for (const id of notBought) store.toggleItem(id);
-    const r = store.finish();
+    const r = store.finish(money);
     if (r) toast(
       `Courses terminées : ${r.count} article${r.count > 1 ? "s" : ""} rangé${r.count > 1 ? "s" : ""}${r.stocked > 0 ? ` (${r.stocked} nouveau${r.stocked > 1 ? "x" : ""} dans Mon frigo)` : ""}`,
       { label: "Annuler", run: r.undo },
@@ -60,8 +62,9 @@ export default function CoursesPage() {
       <header className="sticky top-0 z-20 -mx-4 bg-[#f7f7f5]/95 px-4 pb-3 pt-4 backdrop-blur">
         <div className="mb-3 flex items-baseline justify-between">
           <h1 className="text-2xl font-bold">Mes courses</h1>
-          <span className="text-sm text-stone-500">
+          <span className="flex items-baseline gap-3 text-sm text-stone-500">
             {toBuy === 0 ? "Rien à acheter" : `${toBuy} à acheter`}
+            <Link href="/budget/" className="font-semibold text-brand-700">💶 Budget</Link>
           </span>
         </div>
         <form onSubmit={onSubmit} className="flex gap-2">
@@ -273,31 +276,54 @@ function AisleBrowser() {
   );
 }
 
-/** Avant de ranger : tout est coché, on décoche ce qui n'a finalement pas été pris. */
-function FinishReview({ items, onConfirm }: { items: ShoppingItem[]; onConfirm: (notBought: Set<string>) => void }) {
+/** Avant de ranger : tout est coché, on décoche ce qui n'a finalement pas été pris ; prix facultatifs. */
+function FinishReview({ items, onConfirm }: {
+  items: ShoppingItem[];
+  onConfirm: (notBought: Set<string>, money: { amount: number | null; prices: Map<string, number> }) => void;
+}) {
   const [off, setOff] = useState<Set<string>>(new Set());
+  const [prices, setPrices] = useState<Record<string, string>>({});
+  const [total, setTotal] = useState("");
   const kept = items.length - off.size;
+  const parsed = new Map<string, number>();
+  for (const it of items) {
+    const v = off.has(it.id) ? null : parseEuros(prices[it.id] ?? "");
+    if (v) parsed.set(it.id, v);
+  }
+  const sum = [...parsed.values()].reduce((s, v) => s + v, 0);
   return (
     <div>
-      <p className="text-sm text-stone-600">Ces articles vont être rangés dans « Mon frigo ». Décochez ce que vous n&apos;avez pas pris : il restera dans la liste.</p>
-      <ul className="mt-3 max-h-[50vh] divide-y divide-stone-100 overflow-y-auto">
+      <p className="text-sm text-stone-600">Ces articles vont être rangés dans « Mon frigo ». Décochez ce que vous n&apos;avez pas pris : il restera dans la liste. Les prix sont facultatifs (pour le budget).</p>
+      <ul className="mt-3 max-h-[42vh] divide-y divide-stone-100 overflow-y-auto">
         {items.map((it) => {
           const on = !off.has(it.id);
           return (
-            <li key={it.id}>
+            <li key={it.id} className="flex items-center gap-2">
               <button type="button" role="checkbox" aria-checked={on}
-                className="flex min-h-[52px] w-full items-center gap-3 px-1 text-left"
+                className="flex min-h-[52px] flex-1 items-center gap-3 px-1 text-left"
                 onClick={() => setOff((prev) => { const n = new Set(prev); if (n.has(it.id)) n.delete(it.id); else n.add(it.id); return n; })}>
-                <span className={`flex h-7 w-7 items-center justify-center rounded-full border-2 ${on ? "border-brand-600 bg-brand-600 text-white" : "border-stone-300"}`}>
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${on ? "border-brand-600 bg-brand-600 text-white" : "border-stone-300"}`}>
                   {on && <CheckIcon width={16} height={16} />}
                 </span>
                 <span className={on ? "" : "text-stone-400 line-through"}>{it.customName}</span>
               </button>
+              {on && (
+                <input className="input h-11 min-h-0 w-24 px-3 text-right" inputMode="decimal" placeholder="€"
+                  aria-label={`Prix de ${it.customName}`} value={prices[it.id] ?? ""}
+                  onChange={(e) => setPrices((p) => ({ ...p, [it.id]: e.target.value }))} />
+              )}
             </li>
           );
         })}
       </ul>
-      <button type="button" className="btn-primary mt-4 w-full" disabled={kept === 0} onClick={() => onConfirm(off)}>
+      <label className="mt-3 flex items-center gap-3">
+        <span className="flex-1 text-sm font-semibold">Total du ticket</span>
+        <input className="input h-11 min-h-0 w-32 px-3 text-right" inputMode="decimal"
+          placeholder={sum > 0 ? formatEuros(sum) : "€ (facultatif)"} aria-label="Total du ticket"
+          value={total} onChange={(e) => setTotal(e.target.value)} />
+      </label>
+      <button type="button" className="btn-primary mt-4 w-full" disabled={kept === 0}
+        onClick={() => onConfirm(off, { amount: parseEuros(total), prices: parsed })}>
         Ranger {kept} article{kept > 1 ? "s" : ""}
       </button>
     </div>
