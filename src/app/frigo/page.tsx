@@ -3,31 +3,13 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { ALL_EQUIPMENT, useStore } from "@/lib/store";
 import { CATEGORY_LABELS, CATEGORY_ORDER, COMMON_INGREDIENT_IDS, INGREDIENTS, getIngredient } from "@/lib/data/ingredients";
-import { itemKey, normalizeText } from "@/lib/domain/normalize";
+import { searchIngredients } from "@/lib/domain/search";
 import { EDITABLE_UNITS, UNITS, formatAmount } from "@/lib/domain/units";
 import type { Ingredient, InventoryItem, Unit } from "@/lib/domain/types";
 import { EQUIPMENT_LABELS } from "@/lib/labels";
 import { Sheet } from "@/components/Sheet";
 import { BoltIcon, PlusIcon, XIcon } from "@/components/Icons";
 import { useToast } from "@/components/Toast";
-
-function searchIngredients(q: string, limit = 8): Ingredient[] {
-  const n = normalizeText(q);
-  const k = itemKey(q);
-  if (!n) return [];
-  const score = (i: Ingredient) => {
-    const names = [i.normalizedName, ...i.aliases];
-    if (names.some((x) => x.startsWith(n) || itemKey(x).startsWith(k))) return 0;
-    if (names.some((x) => x.split(" ").some((w) => w.startsWith(n)))) return 1;
-    if (names.some((x) => x.includes(n))) return 2;
-    return 9;
-  };
-  return INGREDIENTS.map((i) => [i, score(i)] as const)
-    .filter(([, s]) => s < 9)
-    .sort((a, b) => a[1] - b[1] || a[0].name.localeCompare(b[0].name, "fr"))
-    .slice(0, limit)
-    .map(([i]) => i);
-}
 
 export default function FrigoPage() {
   const store = useStore();
@@ -67,8 +49,11 @@ export default function FrigoPage() {
         <h1 className="mb-3 text-2xl font-bold">Mon frigo</h1>
         <form onSubmit={onSubmit} className="relative">
           <label htmlFor="ing-search" className="sr-only">Ajouter un ingrédient</label>
-          <input id="ing-search" className="input text-lg" value={q} onChange={(e) => setQ(e.target.value)}
-            placeholder="Ajouter un ingrédient…" autoComplete="off" enterKeyHint="done" />
+          <div className="flex gap-2">
+            <input id="ing-search" className="input text-lg" value={q} onChange={(e) => setQ(e.target.value)}
+              placeholder="Tapez un ingrédient…" autoComplete="off" enterKeyHint="done" />
+            <button type="submit" className="btn-primary shrink-0 px-4" disabled={results.length === 0}>Ajouter</button>
+          </div>
           {results.length > 0 && (
             <ul className="card absolute inset-x-0 top-[52px] z-30 max-h-80 overflow-y-auto shadow-lg" role="listbox">
               {results.map((ing) => {
