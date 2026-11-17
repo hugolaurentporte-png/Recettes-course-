@@ -180,12 +180,14 @@ function inferClass(recipe: Recipe): MealClass {
   if (tags.has("dessert")) {
     const t: string[] = [];
     if (tags.has("tarte")) t.push("tarte");
+    else if (tags.has("compote") || tags.has("coulis")) t.push("compote");
+    else if (tags.has("crème")) t.push("creme");
     else if (recipe.equipment.some((e) => e.required && e.type === "four")) t.push("gateau");
     return { dessert: t };
   }
   if (tags.has("soupe")) return { entree: ["soupe"], plat: ["soupe-repas"] };
   if (tags.has("salade")) return { entree: ["salade"], plat: ["salade-repas"] };
-  if (tags.has("apéritif")) return { entree: [] };
+  if (tags.has("apéritif")) return { entree: tags.has("tartinade") ? ["tartinade"] : [] };
   const plat: string[] = [];
   if (tags.has("gratin")) plat.push("gratin");
   if (tags.has("pâtes")) plat.push("pates");

@@ -293,7 +293,17 @@ export function convertThermomix(src: ThermomixSourceRecipe): ThermomixDraft {
   if (bowlLoad > 2000) warnings.push(`Environ ${bowlLoad} g/ml au total : au-delà de 2 l, à répartir ou réduire (bol de 2,2 l).`);
   else if (bowlLoad > 1700 && /mixer/i.test(steps.join(" "))) warnings.push(`Environ ${bowlLoad} g/ml : proche de la limite pour mixer chaud, augmenter la vitesse très progressivement.`);
 
-  const tags = [...new Set(["thermomix", ...src.tags.filter((t) => t !== "thermomix")])];
+  // Étiquettes qui rangent la recette dans « Qu'est-ce qu'on mange ? » (moment du repas et type).
+  const mealTags: string[] =
+    src.categorie === "Soupe" ? ["soupe"]
+    : src.categorie === "Accompagnement" || src.categorie === "Sauce" ? ["accompagnement"]
+    : src.categorie === "Plat complet" ? ["riz"]
+    : src.categorie === "Dessert" ? ["dessert", src.tags.includes("crème dessert") ? "crème" : "compote"]
+    : src.categorie === "Apéritif" ? ["apéritif", "tartinade"]
+    : src.tags.includes("flan") ? ["œufs"]
+    : src.tags.includes("dahl") ? ["mijoté"]
+    : ["accompagnement"];
+  const tags = [...new Set(["thermomix", ...src.tags.filter((t) => t !== "thermomix"), ...mealTags])];
   const vegetarian = !lines.some((l) => ["lardon", "poulet", "dinde", "saumon", "cabillaud", "jambon"].includes(l.ingredientId));
   if (vegetarian && !tags.includes("végétarien")) tags.push("végétarien");
 
