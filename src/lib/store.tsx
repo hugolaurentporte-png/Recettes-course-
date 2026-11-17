@@ -199,6 +199,14 @@ function useAppState() {
     });
   }, [saveTrip]);
 
+  /** Ticket importé (texte ou PDF) : un article par ligne, avec son prix et son rayon. */
+  const addReceipt = useCallback((lines: { label: string; price: number; aisle: Aisle }[], amount: number, when = Date.now()) => {
+    saveTrip({
+      id: uuid(), listId: "default", finishedAt: when, amount,
+      items: lines.map((l) => ({ customName: l.label, ingredientId: null, aisle: l.aisle, manual: null, recipeMissing: [], price: l.price })),
+    });
+  }, [saveTrip]);
+
   const finish = useCallback((money: { amount?: number | null; prices?: ReadonlyMap<string, number> } = {}) => {
     const before = stateRef.current.shopping;
     const inventoryBefore = stateRef.current.inventory;
@@ -364,7 +372,7 @@ function useAppState() {
     inventoryMap,
     storageError,
     dismissStorageError: () => setStorageError(null),
-    addItem, toggleItem, updateItem, removeItem, finish, addRecipe, addRecipes, addExpense, removeTrip,
+    addItem, toggleItem, updateItem, removeItem, finish, addRecipe, addRecipes, addExpense, addReceipt, removeTrip,
     planRecipe, updatePlanEntry, removePlanEntry, addPlanToShopping,
     addToInventory, removeFromInventory, updateInventory,
     updateSettings,

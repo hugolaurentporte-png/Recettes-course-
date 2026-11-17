@@ -5,3 +5,4 @@ out
 next-env.d.ts
 e2e/screens
 .netlify/
+public/pdf.worker.min.mjs
