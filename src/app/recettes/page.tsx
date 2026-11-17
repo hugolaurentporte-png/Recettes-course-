@@ -14,7 +14,7 @@ const TIMES: { v: TimeFilter; label: string }[] = [
   { v: 30, label: "< 30 min" },
   { v: 45, label: "< 45 min" },
 ];
-const MODES: Equipment[] = ["four", "poele", "casserole", "cocotte", "airfryer", "sans-cuisson"];
+const MODES: Equipment[] = ["four", "poele", "casserole", "cocotte", "airfryer", "thermomix", "sans-cuisson"];
 
 function RecipesInner() {
   const params = useSearchParams();

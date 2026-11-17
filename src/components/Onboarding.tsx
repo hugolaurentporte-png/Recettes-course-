@@ -7,7 +7,7 @@ import { COMMON_INGREDIENT_IDS, INGREDIENTS, getIngredient } from "@/lib/data/in
 import { EQUIPMENT_LABELS } from "@/lib/labels";
 import type { Equipment } from "@/lib/domain/types";
 
-const EQUIP: Equipment[] = ["four", "poele", "casserole", "cocotte", "airfryer"];
+const EQUIP: Equipment[] = ["four", "poele", "casserole", "cocotte", "airfryer", "thermomix"];
 
 /** Accueil du premier lancement : trois écrans, tous facultatifs. */
 export function Onboarding() {

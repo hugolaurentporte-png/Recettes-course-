@@ -18,6 +18,7 @@ const QUICK = [
   { label: "Four", href: "/recettes/?m=four" },
   { label: "Poêle", href: "/recettes/?m=poele" },
   { label: "Cocotte", href: "/recettes/?m=cocotte" },
+  { label: "Thermomix", href: "/recettes/?m=thermomix" },
 ];
 
 function Row({ title, items, more }: { title: string; items: ScoredRecipe[]; more?: string }) {
