@@ -56,7 +56,8 @@ function newItem(ctx: ShoppingContext, fields: Partial<ShoppingItem> & Pick<Shop
 }
 
 function touch(item: ShoppingItem, ctx: ShoppingContext, patch: Partial<ShoppingItem>): ShoppingItem {
-  return { ...item, ...patch, updatedAt: ctx.now, updatedBy: ctx.deviceId };
+  // Toujours plus récent que la version précédente, même si l'horloge d'un autre téléphone avance.
+  return { ...item, ...patch, updatedAt: Math.max(ctx.now, item.updatedAt + 1), updatedBy: ctx.deviceId };
 }
 
 function replace(items: readonly ShoppingItem[], updated: ShoppingItem): ShoppingItem[] {
