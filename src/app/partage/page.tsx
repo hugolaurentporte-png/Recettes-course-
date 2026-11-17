@@ -136,6 +136,9 @@ export default function PartagePage() {
                 ? "Pas de connexion pour l'instant : les changements partiront plus tard."
                 : `Dernière mise à jour : ${since(store.syncStatus.lastSync, now)}`}
             </p>
+            {store.syncStatus.planFailing && !store.syncStatus.failing && (
+              <p className="mt-2 text-sm text-warm-600">Le planning n&apos;est pas encore partagé : il reste sur ce téléphone pour l&apos;instant.</p>
+            )}
           </div>
           {!fridgeShared && (
             <button type="button" className="btn-primary w-full" disabled={busy}
@@ -157,7 +160,7 @@ export default function PartagePage() {
           </div>
           <p className="px-1 text-xs text-stone-500">
             Le lien et le code permettent de rejoindre le foyer : ne les envoyez qu'aux personnes qui vivent avec vous.
-            {fridgeShared ? " Le budget reste sur chaque téléphone." : " Le frigo, le budget et le planning restent sur chaque téléphone."}
+            {fridgeShared ? " Le planning des repas est partagé aussi ; le budget reste sur chaque téléphone." : " Le planning des repas est partagé aussi ; le frigo et le budget restent sur chaque téléphone."}
           </p>
           <button type="button" className="w-full py-3 text-sm font-semibold text-red-700"
             onClick={() => void run(() => store.stopSharing(), "Ce téléphone a quitté le foyer")}>

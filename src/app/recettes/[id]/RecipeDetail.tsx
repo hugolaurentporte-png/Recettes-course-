@@ -15,7 +15,7 @@ import { useToast } from "@/components/Toast";
 import { Visual } from "@/components/RecipeCard";
 import { BackIcon, CalendarIcon, CartIcon, MinusIcon, PlusIcon } from "@/components/Icons";
 import { Sheet } from "@/components/Sheet";
-import { MEALS, MEAL_LABELS, dayLabel, toDateKey, weekDays, type Meal } from "@/lib/domain/plan";
+import { MEALS, MEAL_LABELS, dayLabel, nextDay, plannedAt, toDateKey, weekDays, type Meal } from "@/lib/domain/plan";
 
 const STATUS_STYLE: Record<LineStatus, { icon: string; cls: string; label: string }> = {
   ok: { icon: "✓", cls: "text-brand-700", label: "Disponible" },
@@ -31,6 +31,7 @@ export function RecipeDetail({ id }: { id: string }) {
   const router = useRouter();
   const [servings, setServings] = useState(recipe.servings);
   const [planning, setPlanning] = useState(false);
+  const [together, setTogether] = useState(false);
   const [cooking, setCooking] = useState(false);
   const [finished, setFinished] = useState<Set<string>>(new Set());
   /** Empêche un double appui de déduire deux fois : une seule validation par ouverture du panneau. */
@@ -150,6 +151,10 @@ export function RecipeDetail({ id }: { id: string }) {
           <p className="mt-4 rounded-2xl bg-brand-50 p-4 text-center font-semibold text-brand-700">✓ Vous avez tout ce qu&apos;il faut</p>
         )}
 
+        <button type="button" className="btn-secondary mt-3 w-full" onClick={() => setTogether(true)}>
+          👥 Prévoir ce plat à deux
+        </button>
+
         <button type="button" className="btn-secondary mt-3 w-full" onClick={() => setPlanning(true)}>
           <CalendarIcon width={20} /> Ajouter au planning
         </button>
@@ -175,6 +180,15 @@ export function RecipeDetail({ id }: { id: string }) {
           🍳 J&apos;ai cuisiné
         </button>
       </div>
+
+      <Sheet open={together} onClose={() => setTogether(false)} title="Prévoir ce plat à deux">
+        {together && (
+          <TogetherPicker recipeId={recipe.id} title={recipe.title} servings={servings} onDone={(when) => {
+            setTogether(false);
+            toast(`${recipe.title} prévu ${when}, ${servings} pers.`, { label: "Voir", run: () => router.push("/") });
+          }} />
+        )}
+      </Sheet>
 
       <Sheet open={cooking} onClose={() => setCooking(false)} title="Tu as fini quelque chose ?">
         <p className="text-sm text-stone-600">Coche les produits que tu as entièrement terminés. Pour le reste, on estime ce qu&apos;il reste.</p>
@@ -243,5 +257,68 @@ function PlanPicker({ onPick }: { onPick: (date: string, meal: Meal) => void }) 
         </li>
       ))}
     </ul>
+  );
+}
+
+/** « Ce soir » ou « Demain » : le plat apparaît sur l'accueil des deux membres du foyer. */
+function TogetherPicker({ recipeId, title, servings, onDone }: {
+  recipeId: string; title: string; servings: number; onDone: (when: string) => void;
+}) {
+  const store = useStore();
+  const today = toDateKey(new Date());
+  const slots = [
+    { label: "Ce soir", when: "ce soir", date: today },
+    { label: "Demain", when: "demain soir", date: nextDay(today) },
+  ];
+  const [confirm, setConfirm] = useState<(typeof slots)[number] | null>(null);
+
+  function pick(s: (typeof slots)[number], force = false) {
+    const current = plannedAt(store.plan, s.date, "soir");
+    if (current && current.recipeId !== recipeId && !force) {
+      setConfirm(s);
+      return;
+    }
+    store.planRecipe(recipeId, s.date, "soir", servings);
+    onDone(s.when);
+  }
+
+  if (confirm) {
+    const current = plannedAt(store.plan, confirm.date, "soir");
+    const currentTitle = current ? RECIPES_BY_ID.get(current.recipeId)?.title ?? "un autre plat" : "un autre plat";
+    return (
+      <div className="space-y-3">
+        <p className="rounded-2xl bg-warm-50 p-4">
+          {confirm.label}, <strong>{currentTitle}</strong> est déjà prévu.
+        </p>
+        <p className="font-semibold">Remplacer le plat prévu ?</p>
+        <button type="button" className="btn-primary w-full" onClick={() => pick(confirm, true)}>
+          Remplacer par {title}
+        </button>
+        <button type="button" className="btn-secondary w-full" onClick={() => setConfirm(null)}>Garder {currentTitle}</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-stone-600">
+        {servings} pers. Le plat apparaîtra sur l&apos;accueil de chacun, avec la recette et ce qui manque pour les courses.
+      </p>
+      {slots.map((s) => {
+        const current = plannedAt(store.plan, s.date, "soir");
+        const currentTitle = current && current.recipeId !== recipeId ? RECIPES_BY_ID.get(current.recipeId)?.title : null;
+        return (
+          <button key={s.label} type="button" className="btn-primary w-full flex-col py-3" onClick={() => pick(s)}>
+            <span>{s.label}</span>
+            {currentTitle && <span className="text-xs font-normal opacity-90">Déjà prévu : {currentTitle}</span>}
+          </button>
+        );
+      })}
+      {!store.household && (
+        <p className="px-1 text-xs text-stone-500">
+          Pour que votre partenaire le voie aussi, <Link href="/partage/" className="font-semibold text-brand-700">partagez votre liste</Link> avec son téléphone.
+        </p>
+      )}
+    </div>
   );
 }
