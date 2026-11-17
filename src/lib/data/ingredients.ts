@@ -284,3 +284,17 @@ export const COMMON_INGREDIENT_IDS = [
   "oeuf", "pomme-de-terre", "oignon", "carotte", "tomate", "pates", "riz", "lardon",
   "fromage-rape", "creme", "lait", "courgette", "champignon", "poulet", "ail", "jambon",
 ];
+
+/**
+ * « Ajout rapide » de Mon frigo : les produits les plus courants, rangés par famille.
+ * Les fruits et légumes de saison du mois s’ajoutent automatiquement au bout de leur ligne.
+ */
+export const QUICK_ADD_GROUPS: { label: string; ids: string[] }[] = [
+  { label: "🥕 Légumes", ids: ["pomme-de-terre", "oignon", "carotte", "tomate", "courgette", "champignon", "ail", "salade", "poireau", "poivron", "concombre", "echalote", "brocoli", "haricot-vert", "epinard", "avocat"] },
+  { label: "🍎 Fruits", ids: ["pomme", "banane", "citron", "orange", "poire", "clementine", "kiwi", "raisin", "fraise"] },
+  { label: "🥩 Viandes, poissons, œufs", ids: ["oeuf", "poulet", "jambon", "lardon", "boeuf-hache", "steak", "saucisse", "dinde", "saumon", "cabillaud", "crevette", "thon-boite"] },
+  { label: "🧀 Crèmerie", ids: ["lait", "beurre", "creme", "yaourt", "fromage-rape", "mozzarella", "comte", "parmesan", "chevre", "feta", "pate-feuilletee", "pate-brisee"] },
+  { label: "🍝 Féculents", ids: ["pates", "riz", "pain", "pain-mie", "semoule", "lentille", "gnocchi", "tortilla", "quinoa"] },
+  { label: "🥫 Placard", ids: ["tomate-concassee", "coulis-tomate", "concentre-tomate", "mais", "pois-chiche", "lait-coco", "farine", "sucre", "chocolat", "bouillon", "moutarde", "miel"] },
+  { label: "❄️ Surgelés", ids: ["petit-pois-surgele", "epinard-surgele"] },
+];
