@@ -249,6 +249,12 @@ function EditForm({ item, onClose }: { item: ShoppingItem; onClose: () => void }
   );
 }
 
+const byName = (cat: "legumes" | "fruits") =>
+  INGREDIENTS.filter((i) => i.category === cat).map((i) => i.name).sort((x, y) => x.localeCompare(y, "fr"));
+/** Rayon fruits et légumes : tout le catalogue, séparé en légumes (herbes fraîches comprises) et fruits. */
+const VEGETABLES = byName("legumes");
+const FRUITS = byName("fruits");
+
 /** Tous les rayons : un toucher ajoute le produit, un second le retire. */
 function AisleBrowser() {
   const store = useStore();
@@ -256,23 +262,33 @@ function AisleBrowser() {
     store.shopping.filter((i) => i.deletedAt === null && !i.checked).map((i) => [itemKey(i.customName), i.id] as const),
   );
   const aisles = AISLE_ORDER.filter((a): a is keyof typeof PRODUCTS => a in PRODUCTS);
+  const chips = (names: string[]) => (
+    <div className="flex flex-wrap gap-2">
+      {names.map((name) => {
+        const id = inList.get(itemKey(name));
+        return (
+          <button key={name} type="button" aria-pressed={id !== undefined} className={`chip ${id ? "chip-on" : ""}`}
+            onClick={() => (id ? store.removeItem(id) : store.addItem(name))}>
+            {id ? "✓ " : ""}{name}
+          </button>
+        );
+      })}
+    </div>
+  );
   return (
     <div className="max-h-[65vh] overflow-y-auto pb-4">
       <p className="text-sm text-stone-600">Touchez un produit pour l&apos;ajouter, touchez-le encore pour le retirer.</p>
       {aisles.map((a) => (
         <section key={a}>
           <h3 className="section-title">{AISLE_ICONS[a]} {AISLE_LABELS[a]}</h3>
-          <div className="flex flex-wrap gap-2">
-            {PRODUCTS[a].map((name) => {
-              const id = inList.get(itemKey(name));
-              return (
-                <button key={name} type="button" aria-pressed={id !== undefined} className={`chip ${id ? "chip-on" : ""}`}
-                  onClick={() => (id ? store.removeItem(id) : store.addItem(name))}>
-                  {id ? "✓ " : ""}{name}
-                </button>
-              );
-            })}
-          </div>
+          {a === "fruits-legumes" ? (
+            <>
+              <h4 className="mb-2 px-1 text-sm font-semibold text-stone-600">🥕 Légumes</h4>
+              {chips(VEGETABLES)}
+              <h4 className="mb-2 mt-3 px-1 text-sm font-semibold text-stone-600">🍎 Fruits</h4>
+              {chips(FRUITS)}
+            </>
+          ) : chips(PRODUCTS[a])}
         </section>
       ))}
     </div>
