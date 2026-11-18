@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { searchIngredients, searchRecipeTitles } from "@/lib/domain/search";
+import { getIngredient } from "@/lib/data/ingredients";
+import { RECIPES } from "@/lib/data/recipes";
+import { EMPTY_FILTERS, matchesFilters } from "@/lib/domain/recommend";
 
 describe("recherche avec suggestions", () => {
   it("propose des ingrédients dès la première lettre", () => {
@@ -30,5 +33,27 @@ describe("fruits et légumes du catalogue", () => {
   });
   it("range les fruits dans la catégorie fruits", () => {
     expect(searchIngredients("myrtil")[0]?.category).toBe("fruits");
+  });
+});
+
+describe("recherche de quenelles et des classiques (lot 3)", () => {
+  const ctxMatch = (q: string) =>
+    RECIPES.filter((r) => matchesFilters(r, { ...EMPTY_FILTERS, query: q }, getIngredient)).map((r) => r.id);
+
+  it("« quenelle », « quenelles », « Quenelles » et « quenèlle » trouvent les mêmes recettes", () => {
+    const ref = ctxMatch("quenelle");
+    expect(ref).toEqual(expect.arrayContaining(["quenelles-nantua", "gratin-quenelles", "quenelles-sauce-tomate", "tm-gratin-quenelles"]));
+    for (const q of ["quenelles", "Quenelles", "QUENELLE", "quenèlle", " quenelles "]) expect(ctxMatch(q)).toEqual(ref);
+  });
+  it("les suggestions de l'accueil marchent au singulier comme au pluriel", () => {
+    for (const q of ["quenelle", "quenelles", "quen"]) {
+      expect(searchRecipeTitles(q, 10).map((r) => r.id)).toEqual(expect.arrayContaining(["quenelles-nantua", "gratin-quenelles"]));
+    }
+    expect(searchRecipeTitles("tomates farcie", 3)[0]?.id).toBe("tomates-farcies");
+    expect(searchRecipeTitles("pot au feu", 3)[0]?.id).toBe("pot-au-feu");
+    expect(searchRecipeTitles("ile flottante", 3).map((r) => r.id)).toContain("ile-flottante");
+  });
+  it("l'ingrédient quenelle est proposé dans le frigo", () => {
+    expect(searchIngredients("quenel")[0]?.id).toBe("quenelle");
   });
 });

@@ -1,6 +1,6 @@
 import type { Equipment, Ingredient, InventoryItem, Recipe } from "./types";
 import { recipeAvailability, type RecipeAvailability } from "./availability";
-import { normalizeText } from "./normalize";
+import { itemKey, normalizeText } from "./normalize";
 import { seasonLevel } from "../data/seasonality";
 
 /** Pondérations initiales du score (à ajuster après essais). Total = 1. */
@@ -77,12 +77,15 @@ export function matchesFilters(recipe: Recipe, filters: Filters, getIngredient: 
   }
   const q = normalizeText(filters.query);
   if (q) {
-    const inTitle = normalizeText(recipe.title).includes(q);
+    // Sans accents, et au singulier comme au pluriel (« quenelle » = « quenelles »).
+    const k = itemKey(filters.query);
+    const has = (text: string) => normalizeText(text).includes(q) || itemKey(text).includes(k);
+    const inTitle = has(recipe.title);
     const inIngredients = recipe.ingredients.some((l) => {
       const ing = getIngredient(l.ingredientId);
-      return ing && (ing.normalizedName.includes(q) || ing.aliases.some((a) => a.includes(q)));
+      return ing && (has(ing.normalizedName) || ing.aliases.some(has));
     });
-    const inTags = recipe.tags.some((t) => normalizeText(t).includes(q));
+    const inTags = recipe.tags.some(has);
     if (!inTitle && !inIngredients && !inTags) return false;
   }
   return true;

@@ -25,12 +25,14 @@ export function searchIngredients(q: string, limit = 8, list: Ingredient[] = ING
 /** Recettes dont le nom correspond à ce qui est tapé (début de mot en premier). */
 export function searchRecipeTitles(q: string, limit = 5, list: Recipe[] = RECIPES): Recipe[] {
   const n = normalizeText(q);
+  const k = itemKey(q);
   if (!n) return [];
+  // On compare aussi les formes au singulier : « quenelles » trouve « Gratin de quenelle » et inversement.
   const score = (r: Recipe) => {
-    const t = normalizeText(r.title);
-    if (t.startsWith(n)) return 0;
-    if (t.split(" ").some((w) => w.startsWith(n))) return 1;
-    if (t.includes(n)) return 2;
+    const forms: [string, string][] = [[normalizeText(r.title), n], [itemKey(r.title), k]];
+    if (forms.some(([t, x]) => t.startsWith(x))) return 0;
+    if (forms.some(([t, x]) => t.split(" ").some((w) => w.startsWith(x)))) return 1;
+    if (forms.some(([t, x]) => t.includes(x))) return 2;
     return 9;
   };
   return list.filter((r) => r.published)

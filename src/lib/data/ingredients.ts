@@ -203,6 +203,16 @@ const ROWS: Row[] = [
   ["amande-poudre", "Poudre d'amande", "epicerie", "g", [], ""],
   ["flocon-avoine", "Flocons d'avoine", "epicerie", "g", [], ""],
   ["pesto", "Pesto", "epicerie", "cs", [], ""],
+  // Classiques du quotidien (quenelles, choucroute, petit salé…)
+  ["quenelle", "Quenelles", "laitiers", "piece", ["quenelles nature", "quenelles de brochet", "quenelles de volaille", "quenelle de brochet"], ""],
+  ["sauce-nantua", "Sauce Nantua", "conserves", "g", ["sauce aux ecrevisses", "nantua"], ""],
+  ["choucroute", "Choucroute crue", "conserves", "g", ["chou choucroute"], ""],
+  ["saucisse-fumee", "Saucisses fumées", "viandes", "piece", ["saucisses de montbeliard", "saucisse de morteau", "saucisses de strasbourg", "knacks"], ""],
+  ["petit-sale", "Petit salé", "viandes", "g", ["palette demi sel", "poitrine demi sel"], ""],
+  ["lapin", "Lapin en morceaux", "viandes", "g", ["lapin"], ""],
+  ["roti-porc", "Rôti de porc", "viandes", "g", ["roti de porc", "filet de porc"], ""],
+  ["chair-saucisse", "Chair à saucisse", "viandes", "g", ["farce", "chair a saucisse"], ""],
+  ["confit-canard", "Cuisses de canard confites", "conserves", "piece", ["confit de canard", "canard confit"], ""],
   // Condiments & indispensables
   ["sel", "Sel", "condiments", "pincee", [], "s"],
   ["poivre", "Poivre", "condiments", "pincee", [], "s"],
