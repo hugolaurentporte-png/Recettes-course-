@@ -166,6 +166,16 @@ const CLASSES: Record<string, MealClass> = {
   "tm-dahl-lentilles": { plat: ["mijote"] },
   "tm-houmous": { entree: ["tartinade"] },
   "tm-compote-pommes": { dessert: ["compote"] },
+  // Lot 3 : quenelles et classiques
+  "quenelles-nantua": { plat: ["gratin"] },
+  "quenelles-sauce-tomate": { plat: ["mijote", "poelee"] },
+  "poireaux-vinaigrette": { entree: ["salade"] },
+  "celeri-remoulade": { entree: ["salade"] },
+  "carottes-rapees": { entree: ["salade"], plat: ["accompagnement"] },
+  "oeufs-mimosa": { entree: ["salade"], plat: ["oeufs"] },
+  "tarte-thon-tomate": { entree: ["tarte-salee"], plat: ["quiche"] },
+  "pain-perdu": { dessert: ["crepes"] },
+  "tarte-tatin": { dessert: ["tarte"] },
 };
 
 /** Un dessert prêt en 20 minutes ou moins est aussi un « dessert rapide ». */

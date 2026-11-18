@@ -1,12 +1,12 @@
 {
   "source": "data/import/recettes_1000_import.json",
   "entrees": 1000,
-  "recettesExistantesIntactes": 98,
+  "recettesExistantesIntactes": 138,
   "acceptees": 997,
   "rejetees": 3,
   "doublonsDeRecettesExistantes": 3,
   "variantesTresProches": 298,
-  "prochesDUneRecetteExistante": 92,
+  "prochesDUneRecetteExistante": 112,
   "avecAlerte": 171,
   "statuts": {
     "brouillon": 0,

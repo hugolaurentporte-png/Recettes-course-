@@ -38,8 +38,8 @@ function filesUnder(dir: string): string[] {
 }
 
 describe("import en brouillon", () => {
-  it("les 98 recettes existantes sont intactes ; seules les recettes validées sont publiées", () => {
-    expect(BASE_RECIPES).toHaveLength(98);
+  it("les recettes de base (98 d'origine + 40 du lot 3) sont intactes ; seules les recettes validées sont publiées", () => {
+    expect(BASE_RECIPES).toHaveLength(138);
     expect(BASE_RECIPES.some((r) => r.id.startsWith("imp-"))).toBe(false);
     expect(drafts.every((d) => d.published === false)).toBe(true);
     const valid = drafts.filter((d) => d.review.status === "valide").map((d) => d.id);

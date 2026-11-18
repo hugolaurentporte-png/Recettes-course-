@@ -3955,6 +3955,7 @@
    "family": "poelee",
    "corrections": [],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0026"
   }
  },
@@ -4048,6 +4049,7 @@
    "family": "gratin",
    "corrections": [],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0027"
   }
  },
@@ -4135,6 +4137,7 @@
     "Bouillon : 500 ml remplacés par 1 cube + 500 ml d'eau (unité du catalogue)."
    ],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0028"
   }
  },
@@ -4220,6 +4223,7 @@
    "family": "curry",
    "corrections": [],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0029"
   }
  },
@@ -4300,6 +4304,7 @@
    "family": "four",
    "corrections": [],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0030"
   }
  },
@@ -8080,6 +8085,7 @@
     "Titre corrigé : « Poêlée de courgettes et haricots blancs au semoule » → « Poêlée de courgettes et haricots blancs à la semoule »."
    ],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0076"
   }
  },
@@ -8175,6 +8181,7 @@
    "warnings": [
     "Légume riche en eau : le gratin peut rendre du jus, bien égoutter."
    ],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0077"
   }
  },
@@ -8262,6 +8269,7 @@
     "Bouillon : 500 ml remplacés par 1 cube + 500 ml d'eau (unité du catalogue)."
    ],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0078"
   }
  },
@@ -8347,6 +8355,7 @@
    "family": "curry",
    "corrections": [],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0079"
   }
  },
@@ -8427,6 +8436,7 @@
    "family": "four",
    "corrections": [],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0080"
   }
  },
@@ -46678,6 +46688,7 @@
    "family": "poelee",
    "corrections": [],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0526"
   }
  },
@@ -46773,6 +46784,7 @@
    "warnings": [
     "Légume riche en eau : le gratin peut rendre du jus, bien égoutter."
    ],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0527"
   }
  },
@@ -46860,6 +46872,7 @@
     "Bouillon : 500 ml remplacés par 1 cube + 500 ml d'eau (unité du catalogue)."
    ],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0528"
   }
  },
@@ -46945,6 +46958,7 @@
    "family": "curry",
    "corrections": [],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0529"
   }
  },
@@ -47025,6 +47039,7 @@
    "family": "four",
    "corrections": [],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0530"
   }
  },
@@ -50950,6 +50965,7 @@
    "family": "poelee",
    "corrections": [],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0576"
   }
  },
@@ -51043,6 +51059,7 @@
    "family": "gratin",
    "corrections": [],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0577"
   }
  },
@@ -51130,6 +51147,7 @@
     "Bouillon : 500 ml remplacés par 1 cube + 500 ml d'eau (unité du catalogue)."
    ],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0578"
   }
  },
@@ -51215,6 +51233,7 @@
    "family": "curry",
    "corrections": [],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0579"
   }
  },
@@ -51295,6 +51314,7 @@
    "family": "four",
    "corrections": [],
    "warnings": [],
+   "closeTo": "soupe-au-pistou",
    "variantOf": "imp-fr-0580"
   }
  },
