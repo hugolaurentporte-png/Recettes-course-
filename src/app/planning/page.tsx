@@ -10,6 +10,7 @@ import { MEALS, MEAL_LABELS, dayLabel, toDateKey, weekDays, type Meal, type Plan
 import type { Equipment } from "@/lib/domain/types";
 import { formatMinutes } from "@/lib/labels";
 import { Sheet } from "@/components/Sheet";
+import { Discover } from "@/components/Discover";
 import { useToast } from "@/components/Toast";
 import { CartIcon, MinusIcon, PlusIcon, SearchIcon, XIcon } from "@/components/Icons";
 
@@ -21,6 +22,7 @@ export default function PlanningPage() {
   const router = useRouter();
   const [offset, setOffset] = useState(0);
   const [slot, setSlot] = useState<{ date: string; meal: Meal } | null>(null);
+  const [discoverOpen, setDiscoverOpen] = useState(false);
 
   const today = toDateKey(new Date());
   const days = useMemo(() => weekDays(new Date(), offset), [offset]);
@@ -47,7 +49,12 @@ export default function PlanningPage() {
   return (
     <div className="px-4 pb-6">
       <header className="sticky top-0 z-20 -mx-4 bg-[#f7f7f5]/95 px-4 pb-3 pt-4 backdrop-blur">
-        <h1 className="text-2xl font-bold">Planning des repas</h1>
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-2xl font-bold">Planning des repas</h1>
+          <button type="button" className="chip shrink-0 border-brand-500 bg-brand-50 font-semibold text-brand-700" onClick={() => setDiscoverOpen(true)}>
+            ✨ À découvrir
+          </button>
+        </div>
         <div className="mt-3 flex items-center justify-between gap-2">
           <button type="button" className="btn-secondary h-11 min-h-0 px-4" onClick={() => setOffset(offset - 1)} disabled={offset <= 0}
             aria-label="Semaine précédente">‹</button>
@@ -104,6 +111,16 @@ export default function PlanningPage() {
       <p className="mt-2 px-1 text-center text-xs text-stone-500">
         {planned === 0 ? "Choisissez des recettes pour remplir la liste de courses." : `${planned} repas prévu${planned > 1 ? "s" : ""}. Ce que vous avez dans le frigo est déduit.`}
       </p>
+
+      <Sheet open={discoverOpen} onClose={() => setDiscoverOpen(false)} title="À découvrir ce soir">
+        {discoverOpen && (
+          <Discover onPlanned={(title) => {
+            setDiscoverOpen(false);
+            setOffset(0);
+            toast(`Prévu ce soir : ${title}`);
+          }} />
+        )}
+      </Sheet>
 
       <Sheet open={slot !== null} onClose={() => setSlot(null)} title={slot ? `${dayLabel(slot.date, today)} · ${MEAL_LABELS[slot.meal]}` : ""}>
         {slot && (
