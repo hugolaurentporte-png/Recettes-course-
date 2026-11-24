@@ -1,4 +1,4 @@
-import type { Aisle, Ingredient, InventoryItem, Recipe, ShoppingItem } from "./types";
+import type { Aisle, Amount, Ingredient, InventoryItem, Recipe, ShoppingItem } from "./types";
 import { scaledNeed } from "./availability";
 import { displayAmounts } from "./shopping";
 import { convert } from "./units";
@@ -157,4 +157,46 @@ export function restoreStock(
   const present = new Set(inventory.map((i) => i.ingredientId));
   for (const p of previous) if (!present.has(p.ingredientId)) next.push(p);
   return next;
+}
+
+/**
+ * « J'ai » sur un ingrédient d'une recette : on l'a à la maison mais il n'était pas dans Mon frigo
+ * (ou pas en quantité suffisante). Il entre au frigo avec la quantité demandée par la recette,
+ * pour qu'il ne parte plus dans les courses, ni pour cette recette ni pour les suivantes.
+ * - absent : ajouté avec la quantité de la recette (ou sans quantité si « selon le goût ») ;
+ * - présent mais pas assez / quantité inconnue : la quantité devient celle de la recette.
+ * `previous` vaut null si le produit n'était pas au frigo (l'annulation le retire alors).
+ */
+export function markHave(
+  inventory: readonly InventoryItem[],
+  ingredientId: string,
+  need: Amount | null,
+  now: number,
+  newId: () => string,
+): { inventory: InventoryItem[]; previous: InventoryItem | null } {
+  const quantity = need?.value ?? null;
+  const unit = need?.unit ?? null;
+  const idx = inventory.findIndex((i) => i.ingredientId === ingredientId);
+  if (idx < 0) {
+    return {
+      inventory: [...inventory, { id: newId(), ingredientId, quantity, unit, priority: false, updatedAt: now }],
+      previous: null,
+    };
+  }
+  const cur = inventory[idx]!;
+  const { quantityCheck: _resolved, ...rest } = cur;
+  const next = [...inventory];
+  // Sans quantité demandée (« selon le goût »), le produit présent suffit : on n'efface pas sa quantité.
+  next[idx] = need ? { ...rest, quantity, unit, updatedAt: now } : { ...cur, updatedAt: now };
+  return { inventory: next, previous: cur };
+}
+
+/** Annule « J'ai » : retire le produit ajouté, ou lui rend son état d'avant. */
+export function undoMarkHave(
+  inventory: readonly InventoryItem[],
+  ingredientId: string,
+  previous: InventoryItem | null,
+): InventoryItem[] {
+  if (previous === null) return inventory.filter((i) => i.ingredientId !== ingredientId);
+  return restoreStock(inventory, [previous]);
 }

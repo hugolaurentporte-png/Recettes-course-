@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { Aisle, Equipment, InventoryItem, ItemHistory, Recipe, ShoppingItem, ShoppingTrip, Unit } from "./domain/types";
+import type { Aisle, Amount, Equipment, InventoryItem, ItemHistory, Recipe, ShoppingItem, ShoppingTrip, Unit } from "./domain/types";
 import {
   addManualItem, addRecipeToList, deleteItem, editItem, finishShopping, recordUsage, toggleChecked,
   type ItemEdit, type RecipeAddSummary, type ShoppingContext,
@@ -10,7 +10,7 @@ import { INGREDIENTS, getIngredient } from "./data/ingredients";
 import * as db from "./storage/db";
 import { activePlan, normalizePlan, patchSlot, prunePlan, servingsByRecipe, setSlot, type Meal, type PlanEntry } from "./domain/plan";
 import { RECIPES_BY_ID } from "./data/recipes";
-import { consumeRecipe, restoreStock, stockFromPurchase } from "./domain/stock";
+import { consumeRecipe, markHave, restoreStock, stockFromPurchase, undoMarkHave } from "./domain/stock";
 import { collapseRecipeDuplicates, docsToPush, isHouseholdCode, itemsToPush, mergeDocs, mergeRemote, newHouseholdCode } from "./sync/engine";
 import { pullItems, pushItems } from "./sync/client";
 import {
@@ -694,6 +694,27 @@ function useAppState() {
   );
 
   /**
+   * « J'ai » sur un ingrédient d'une recette : il entre dans Mon frigo avec la quantité demandée,
+   * il ne partira donc plus dans les courses. Renvoie une annulation (sans effet si appelée deux fois).
+   */
+  const haveIngredient = useCallback(
+    (ingredientId: string, need: Amount | null) => {
+      const r = markHave(stateRef.current.inventory, ingredientId, need, Date.now(), uuid);
+      commitInventory(r.inventory);
+      let undone = false;
+      return {
+        wasAbsent: r.previous === null,
+        undo: () => {
+          if (undone) return;
+          undone = true;
+          commitInventory(undoMarkHave(stateRef.current.inventory, ingredientId, r.previous));
+        },
+      };
+    },
+    [commitInventory],
+  );
+
+  /**
    * « J'ai cuisiné » : retire les produits terminés et déduit (estimation) le reste.
    * Renvoie le bilan et une fonction d'annulation (sans effet si elle est appelée deux fois).
    */
@@ -743,7 +764,7 @@ function useAppState() {
     dismissStorageError: () => setStorageError(null),
     addItem, toggleItem, updateItem, removeItem, finish, addRecipe, addRecipes, addExpense, addReceipt, removeTrip,
     planRecipe, updatePlanEntry, removePlanEntry, addPlanToShopping, addPlannedToShopping,
-    addToInventory, removeFromInventory, updateInventory, cookRecipe,
+    addToInventory, removeFromInventory, updateInventory, cookRecipe, haveIngredient,
     updateSettings,
     syncStatus, syncNow, startSharing, stopSharing, shareFridge, householdMembers,
     fridgeConflicts, dismissFridgeConflicts: () => setFridgeConflicts(0),

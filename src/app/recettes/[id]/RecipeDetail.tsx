@@ -8,6 +8,7 @@ import { getIngredient } from "@/lib/data/ingredients";
 import { recipeAvailability, type LineStatus } from "@/lib/domain/availability";
 import { seasonLevel } from "@/lib/data/seasonality";
 import { formatAmount, formatRecipeAmount } from "@/lib/domain/units";
+import type { Amount } from "@/lib/domain/types";
 import { cookedIngredientsInStock } from "@/lib/domain/stock";
 import { EQUIPMENT_LABELS, formatMinutes } from "@/lib/labels";
 import { useStore } from "@/lib/store";
@@ -66,6 +67,12 @@ export function RecipeDetail({ id }: { id: string }) {
       n === 0 ? "Rien à ajouter : vous avez tout" : `${n} article${n > 1 ? "s" : ""} ajouté${n > 1 ? "s" : ""} aux courses`,
       n > 0 ? { label: "Voir", run: () => router.push("/courses/") } : undefined,
     );
+  }
+
+  function markHave(ingredientId: string, name: string, need: Amount | null) {
+    const r = store.haveIngredient(ingredientId, need);
+    toast(r.wasAbsent ? `${name} ajouté à Mon frigo` : `${name} : quantité mise à jour dans Mon frigo`,
+      { label: "Annuler", run: r.undo }, 6000);
   }
 
   const inStock = useMemo(() => cookedIngredientsInStock(recipe, store.inventoryMap), [recipe, store.inventoryMap]);
@@ -174,10 +181,23 @@ export function RecipeDetail({ id }: { id: string }) {
                     </p>
                   )}
                 </div>
+                {l.status !== "ok" && !l.line.optional && (
+                  <button type="button" className="chip shrink-0 border-brand-600 font-semibold text-brand-700"
+                    aria-label={`J'ai déjà : ${l.ingredient?.name ?? l.line.ingredientId}`}
+                    onClick={() => markHave(l.line.ingredientId, l.ingredient?.name ?? l.line.ingredientId, l.need)}>
+                    {l.status === "missing" ? "J'ai" : "J'en ai assez"}
+                  </button>
+                )}
               </li>
             );
           })}
         </ul>
+
+        {toAdd > 0 && (
+          <p className="mt-2 px-1 text-xs text-stone-500">
+            Vous l&apos;avez déjà sans l&apos;avoir noté ? Touchez « J&apos;ai » : il est rangé dans Mon frigo et ne part pas dans les courses.
+          </p>
+        )}
 
         {toAdd > 0 ? (
           <button type="button" className="btn-primary mt-4 w-full" onClick={addMissing}>
